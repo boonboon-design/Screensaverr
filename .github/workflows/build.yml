@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Publish a GitHub release with this tag (e.g. v1.0.0). Leave empty to just build."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -114,7 +119,8 @@ jobs:
   release:
     name: Publish release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Either push a v* tag, or run the workflow manually with a release_tag.
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -125,5 +131,23 @@ jobs:
           path: dist
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Screensaverr ${{ inputs.release_tag || github.ref_name }}
           files: dist/Screensaverr.saver.zip
           generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Download **Screensaverr.saver.zip** below and unzip it.
+            2. This build is ad-hoc signed, not notarized, so clear the download quarantine first:
+               ```bash
+               xattr -dr com.apple.quarantine ~/Downloads/Screensaverr.saver
+               ```
+            3. Double-click **Screensaverr.saver** and install it for this user.
+            4. Open **System Settings › Screen Saver**, choose **Screensaverr**, click **Options…**, and add
+               the URL and API key for Sonarr, Radarr, Seerr and SABnzbd. Use **Test Connection** to check each one.
+
+            Updating from an earlier version? Run `killall legacyScreenSaver` afterwards so macOS loads the new one.
+
+            Universal build (Apple Silicon + Intel), macOS 13 or later.
