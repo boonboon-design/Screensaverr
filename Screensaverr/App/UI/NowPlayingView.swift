@@ -49,9 +49,10 @@ final class NowPlayingView: NSView {
     private var fade: CGFloat { metrics(14) }
     /// Room either side so poster shadows aren't clipped.
     private var gutter: CGFloat { metrics(12) }
-    /// Seconds between glides (one stream at a time), and how long each glide takes.
-    private let interval = 7
-    private let glideDuration: TimeInterval = 1.6
+    /// Seconds between glides (one stream at a time), and how long each glide takes:
+    /// each pair of streams rests on screen for 3 seconds.
+    private let interval = 5
+    private let glideDuration: TimeInterval = 2
 
     private var sessions: [StreamItem] { state.value?.sessions ?? [] }
     private var isScrolling: Bool { sessions.count > capacity }
@@ -88,8 +89,8 @@ final class NowPlayingView: NSView {
 
     /// Called once a second by the dashboard; glides to the next stream every few seconds.
     func tick(_ ticks: Int) {
-        // The first glide comes five seconds in, then one every `interval` seconds.
-        guard isScrolling, !strip.isHiddenOrHasHiddenAncestor, ticks % interval == 5 else { return }
+        // A second before each multiple of `interval`, so glides fall between the columns' page flips.
+        guard isScrolling, !strip.isHiddenOrHasHiddenAncestor, ticks % interval == interval - 1 else { return }
         if scrollIndex >= sessions.count {
             // On the repeated copy of the first streams: jump back to the real ones, which look identical.
             scrollIndex = 0
