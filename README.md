@@ -7,7 +7,7 @@ A native macOS screen saver for your media server. While your Mac is idle it sho
 - **Requests** from **Seerr** (Overseerr and Jellyseerr work too): who asked for what, and whether it's pending, processing or available.
 - **Recently Added** from **Seerr**: a row of posters for what was most recently added to your library.
 - **Downloads** from **SABnzbd**, in a small box in the bottom-left corner: the current speed with a live graph, the active download's progress, and the queue size and time remaining. If SABnzbd is the only service set up, it becomes a full panel instead.
-- **Now Playing** from **Tautulli**, in a small box in the bottom-right corner: how many streams are playing, what each one is, who's watching, and whether it's direct play or transcoding.
+- **Now Playing** from **Tautulli**, in a small box in the bottom-right corner: how many streams are playing, what each one is, who's watching, and whether it's direct play or transcoding. With more streams than fit, the list glides slowly through them and loops.
 
 It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
 

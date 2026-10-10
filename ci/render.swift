@@ -137,6 +137,47 @@ func shoot(_ window: NSWindow, _ name: String) async {
     save(image, name + ".png")
 }
 
+@MainActor
+func findView(named name: String, in view: NSView) -> NSView? {
+    if String(describing: type(of: view)) == name { return view }
+    for subview in view.subviews {
+        if let found = findView(named: name, in: subview) { return found }
+    }
+    return nil
+}
+
+/// The part of a window capture covered by `view`.
+@MainActor
+func crop(_ image: CGImage, to view: NSView, in window: NSWindow) -> CGImage? {
+    let rect = view.convert(view.bounds, to: nil)
+    let scale = CGFloat(image.width) / window.frame.width
+    let pixels = CGRect(x: rect.minX * scale, y: (window.frame.height - rect.maxY) * scale,
+                        width: rect.width * scale, height: rect.height * scale).integral
+    return image.cropping(to: pixels)
+}
+
+/// Lays frames out left to right, top to bottom.
+@MainActor
+func contactSheet(_ frames: [CGImage], columns: Int) -> CGImage? {
+    guard let first = frames.first else { return nil }
+    let gap = 8, frameWidth = first.width, frameHeight = first.height
+    let rows = (frames.count + columns - 1) / columns
+    let width = columns * frameWidth + (columns + 1) * gap
+    let height = rows * frameHeight + (rows + 1) * gap
+    guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    else { return nil }
+    context.setFillColor(CGColor(gray: 0.45, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    for (index, frame) in frames.enumerated() {
+        let column = index % columns, row = index / columns
+        context.draw(frame, in: CGRect(x: gap + column * (frameWidth + gap), y: height - (row + 1) * (frameHeight + gap),
+                                       width: frameWidth, height: frameHeight))
+    }
+    return context.makeImage()
+}
+
 // MARK: Scenes
 
 @MainActor
@@ -160,6 +201,19 @@ func runScenes() async {
     print("running for \(Int(seconds))s…")
     await pause(seconds)
     await shoot(window, "screensaver")
+
+    // The mock has three streams, more than Now Playing fits, so its list glides between them.
+    // Film the box for a few seconds, across at least one glide, as a contact sheet.
+    if let box = findView(named: "NowPlayingView", in: saver) {
+        var frames: [CGImage] = []
+        for _ in 0..<16 {
+            if let image = captureWindow(window), let frame = crop(image, to: box, in: window) { frames.append(frame) }
+            await pause(0.35)
+        }
+        if let sheet = contactSheet(frames, columns: 4) { save(sheet, "now-playing-scroll.png") }
+    } else {
+        print("warning: NowPlayingView not found")
+    }
 
     // System Settings-sized preview
     let thumbFrame = NSRect(x: 0, y: 0, width: 296, height: 184)

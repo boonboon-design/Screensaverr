@@ -80,6 +80,7 @@ final class DashboardView: NSView {
             column.advancePage()
         }
         if ticks % 20 == 10 { recentlyAdded.advancePage() }
+        nowPlaying.tick(ticks)
         if ticks % 45 == 0 { rotateBackdrop() }
         if ticks % 60 == 0 {
             drift()
