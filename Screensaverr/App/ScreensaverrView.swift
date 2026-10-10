@@ -17,6 +17,7 @@ final class ScreensaverrView: ScreenSaverView {
         let preview = frame.width < 640 || frame.height < 400
         super.init(frame: frame, isPreview: preview)
         detectedPreview = preview
+        Log.general.info("init frame=\(Int(frame.width), privacy: .public)x\(Int(frame.height), privacy: .public) preview=\(preview, privacy: .public) (reported \(isPreview, privacy: .public))")
         setUp()
     }
 
@@ -110,6 +111,7 @@ final class ScreensaverrView: ScreenSaverView {
     /// notification is the only reliable signal, and exiting the host process is the only
     /// reliable cleanup (the same workaround Aerial and Apple's forums recommend).
     @objc private func screenSaverWillStop(_ notification: Notification) {
+        Log.general.info("willstop received; exiting host shortly")
         deactivate()
         DashboardStore.shared.shutdown()
         if #available(macOS 14.0, *) {

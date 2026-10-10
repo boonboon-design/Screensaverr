@@ -59,6 +59,7 @@ final class DashboardStore {
     func activate() {
         activeClients += 1
         guard activeClients == 1 else { return }
+        Log.general.info("Starting to poll services")
         apply(settingsLoader(), force: true)
         if !didRestoreCache {
             didRestoreCache = true
@@ -71,6 +72,7 @@ final class DashboardStore {
     func deactivate() {
         activeClients = max(0, activeClients - 1)
         guard activeClients == 0 else { return }
+        Log.general.info("Stopping polling")
         stopPolling()
     }
 
@@ -209,8 +211,10 @@ final class DashboardStore {
         } catch {
             guard !Task.isCancelled, settings[kind] == config else { return false }
             if error is CancellationError || (error as? HTTPError) == .cancelled { return false }
+            let message = ServiceError.describe(error)
+            Log.general.error("\(kind.displayName, privacy: .public) refresh failed: \(message, privacy: .public)")
             state = read()
-            state.error = ServiceError.describe(error)
+            state.error = message
             state.isLoading = false
             write(state)
             notify()
