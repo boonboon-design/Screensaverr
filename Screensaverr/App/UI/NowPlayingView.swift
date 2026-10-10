@@ -20,13 +20,10 @@ final class NowPlayingView: NSView {
         }
     }
 
-    /// Masks the scrolling list; the list itself moves inside it.
-    private let clip = FlippedView(frame: .zero)
-    private let list = StreamListView(frame: .zero)
-    private let fadeMask = CAGradientLayer()
+    /// The stream rows, which glide upwards when there are more than fit.
+    private let strip = StreamStripView(frame: .zero)
     private var scrollIndex = 0
     private var capacity = 2
-    private var isAnimating = false
 
     override var isFlipped: Bool { true }
 
@@ -34,11 +31,7 @@ final class NowPlayingView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
-        clip.wantsLayer = true
-        clip.layer?.masksToBounds = true
-        addSubview(clip)
-        clip.addSubview(list)
-        fadeMask.colors = [NSColor.clear.cgColor, NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+        addSubview(strip)
     }
 
     @available(*, unavailable)
@@ -54,6 +47,8 @@ final class NowPlayingView: NSView {
     private var pitch: CGFloat { rowHeight + metrics(12) }
     /// Space above and below the rows where they fade in and out while scrolling.
     private var fade: CGFloat { metrics(14) }
+    /// Room either side so poster shadows aren't clipped.
+    private var gutter: CGFloat { metrics(12) }
     /// Seconds between glides (one stream at a time), and how long each glide takes.
     private let interval = 7
     private let glideDuration: TimeInterval = 1.6
@@ -72,68 +67,39 @@ final class NowPlayingView: NSView {
         let available = inner.maxY - rowsTop
         // Before layout the box has zero size, so `inner` is a null rect at infinity.
         guard !sessions.isEmpty, !inner.isNull, available.isFinite, available > 0 else {
-            clip.isHidden = true
+            strip.isHidden = true
             return
         }
         capacity = max(1, Int((available + pitch - rowHeight) / pitch))
-        clip.isHidden = false
+        strip.isHidden = false
 
         let visibleHeight = CGFloat(capacity) * pitch - (pitch - rowHeight)
-        clip.frame = CGRect(x: inner.minX, y: rowsTop - fade, width: inner.width, height: visibleHeight + fade * 2)
+        strip.frame = CGRect(x: inner.minX - gutter, y: rowsTop - fade,
+                             width: inner.width + gutter * 2, height: visibleHeight + fade * 2)
 
         // For a seamless loop, repeat the first screenful after the last stream.
-        let rows = isScrolling ? sessions + Array(sessions.prefix(capacity)) : sessions
-        list.metrics = metrics
-        list.accent = accent
-        list.rowHeight = rowHeight
-        list.pitch = pitch
-        list.rows = rows
-        list.setFrameSize(NSSize(width: clip.bounds.width, height: CGFloat(rows.count) * pitch))
-
-        if !isScrolling || scrollIndex >= sessions.count {
-            scrollIndex = 0
-        }
-        if !isAnimating {
-            list.setFrameOrigin(listOrigin)
-        }
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        if isScrolling {
-            let edge = Double(fade / clip.bounds.height)
-            fadeMask.locations = [0, NSNumber(value: edge), NSNumber(value: 1 - edge), 1]
-            fadeMask.frame = clip.bounds
-            clip.layer?.mask = fadeMask
-        } else {
-            clip.layer?.mask = nil
-        }
-        CATransaction.commit()
+        // Resting on that copy (index == sessions.count) looks the same as index 0.
+        if !isScrolling || scrollIndex > sessions.count { scrollIndex = 0 }
+        strip.configure(rows: isScrolling ? sessions + Array(sessions.prefix(capacity)) : sessions,
+                        metrics: metrics, accent: accent, rowHeight: rowHeight, pitch: pitch,
+                        fade: fade, gutter: gutter, fadesEdges: isScrolling)
+        strip.place(at: scrollIndex)
     }
-
-    private var listOrigin: NSPoint { NSPoint(x: 0, y: fade - CGFloat(scrollIndex) * pitch) }
 
     /// Called once a second by the dashboard; glides to the next stream every few seconds.
     func tick(_ ticks: Int) {
         // The first glide comes five seconds in, then one every `interval` seconds.
-        guard isScrolling, !isAnimating, !clip.isHiddenOrHasHiddenAncestor, ticks % interval == 5 else { return }
+        guard isScrolling, !strip.isHiddenOrHasHiddenAncestor, ticks % interval == 5 else { return }
+        if scrollIndex >= sessions.count {
+            // On the repeated copy of the first streams: jump back to the real ones, which look identical.
+            scrollIndex = 0
+            strip.place(at: 0)
+        }
         scrollIndex += 1
-        isAnimating = true
-        let target = listOrigin
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = self.glideDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            self.list.animator().setFrameOrigin(target)
-        }, completionHandler: { [weak self] in
-            guard let self else { return }
-            self.isAnimating = false
-            // Reached the repeated copy of the first streams: jump back to the real ones,
-            // which look identical, so the loop is seamless. Also re-syncs if streams changed mid-glide.
-            if self.scrollIndex >= self.sessions.count { self.scrollIndex = 0 }
-            self.list.setFrameOrigin(self.listOrigin)
-        })
+        strip.glide(from: scrollIndex - 1, to: scrollIndex, duration: glideDuration)
     }
 
-    // MARK: Drawing (box, heading and messages; the rows live in `list`)
+    // MARK: Drawing (box, heading and messages; the rows live in `strip`)
 
     override func draw(_ dirtyRect: NSRect) {
         let m = metrics
@@ -163,51 +129,140 @@ final class NowPlayingView: NSView {
     }
 }
 
-/// The stack of stream rows that scrolls inside `NowPlayingView`.
-private final class StreamListView: NSView {
-    var metrics = Metrics(size: CGSize(width: 1920, height: 1080))
-    var accent = Theme.accent(.tautulli)
-    var rowHeight: CGFloat = 72
-    var pitch: CGFloat = 84
-    var rows: [StreamItem] = [] {
-        didSet { if rows != oldValue { needsDisplay = true } }
-    }
-
+/// The stream rows that scroll inside `NowPlayingView`.
+///
+/// Layer-hosting, like the backdrop: all rows are rendered into one image on a plain layer that
+/// glides up. (A clipped, layer-backed NSView only paints the part that's visible at its final
+/// position, so rows blank out mid-glide.) Layers here are unflipped: y = 0 is the bottom.
+private final class StreamStripView: NSView {
+    private let strip = CALayer()
+    private let fadeMask = CAGradientLayer()
+    private var metrics = Metrics(size: CGSize(width: 1920, height: 1080))
+    private var accent = Theme.accent(.tautulli)
+    private var rowHeight: CGFloat = 72
+    private var pitch: CGFloat = 84
+    private var fade: CGFloat = 14
+    private var gutter: CGFloat = 12
+    private var rows: [StreamItem] = []
+    private var renderedSize = CGSize.zero
+    private var renderedScale: CGFloat = 0
     private var requestedImages = Set<String>()
-
-    override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        let root = CALayer()
+        root.masksToBounds = true
+        layer = root
         wantsLayer = true
-        layerContentsRedrawPolicy = .onSetNeedsDisplay
+        strip.anchorPoint = .zero
+        strip.contentsGravity = .resize
+        root.addSublayer(strip)
+        fadeMask.colors = [NSColor.clear.cgColor, NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override func setFrameSize(_ newSize: NSSize) {
-        let changed = newSize != frame.size
-        super.setFrameSize(newSize)
-        if changed { needsDisplay = true }
+    private var backingScale: CGFloat { window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2 }
+
+    func configure(rows: [StreamItem], metrics: Metrics, accent: NSColor, rowHeight: CGFloat, pitch: CGFloat,
+                   fade: CGFloat, gutter: CGFloat, fadesEdges: Bool) {
+        let rowsChanged = rows != self.rows
+        self.rows = rows
+        self.metrics = metrics
+        self.accent = accent
+        self.rowHeight = rowHeight
+        self.pitch = pitch
+        self.fade = fade
+        self.gutter = gutter
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        strip.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: CGFloat(rows.count) * pitch)
+        if fadesEdges, bounds.height > 0 {
+            let edge = Double(fade / bounds.height)
+            fadeMask.locations = [0, NSNumber(value: edge), NSNumber(value: 1 - edge), 1]
+            fadeMask.frame = bounds
+            layer?.mask = fadeMask
+        } else {
+            layer?.mask = nil
+        }
+        CATransaction.commit()
+
+        if rowsChanged || strip.bounds.size != renderedSize || backingScale != renderedScale { render() }
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        for (index, stream) in rows.enumerated() {
-            let y = CGFloat(index) * pitch
-            guard CGRect(x: 0, y: y, width: bounds.width, height: rowHeight).intersects(dirtyRect) else { continue }
-            drawRow(stream, at: y)
+    /// Where the strip sits with `index` rows scrolled off the top.
+    private func position(for index: Int) -> CGPoint {
+        CGPoint(x: 0, y: bounds.height - fade + CGFloat(index) * pitch - strip.bounds.height)
+    }
+
+    func place(at index: Int) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        strip.position = position(for: index)
+        CATransaction.commit()
+    }
+
+    func glide(from: Int, to: Int, duration: TimeInterval) {
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.fromValue = NSValue(point: position(for: from))
+        animation.toValue = NSValue(point: position(for: to))
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        strip.position = position(for: to)
+        strip.add(animation, forKey: "glide")
+        CATransaction.commit()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        render()
+    }
+
+    /// Draws every row, top to bottom, into the strip's image.
+    private func render() {
+        let size = strip.bounds.size
+        let scale = backingScale
+        renderedSize = size
+        renderedScale = scale
+        let width = Int((size.width * scale).rounded(.up)), height = Int((size.height * scale).rounded(.up))
+        guard width > 0, height > 0,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else {
+            strip.contents = nil
+            return
         }
+        // Top-left origin, like the other views' drawing code expects.
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        for (index, stream) in rows.enumerated() {
+            drawRow(stream, at: CGFloat(index) * pitch)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        strip.contents = context.makeImage()
+        strip.contentsScale = scale
+        CATransaction.commit()
     }
 
     private func drawRow(_ stream: StreamItem, at y: CGFloat) {
         let m = metrics
         let height = rowHeight
-        let posterRect = CGRect(x: 0, y: y, width: height * 2 / 3, height: height)
+        let posterRect = CGRect(x: gutter, y: y, width: height * 2 / 3, height: height)
         Draw.poster(image(for: stream.poster), title: stream.title, in: posterRect, radius: m(6), accent: accent)
 
         let x = posterRect.maxX + m(14)
-        let width = bounds.width - x
+        let right = strip.bounds.width - gutter
+        let width = right - x
         let titleFont = Theme.font(m(17), .semibold)
         let subtitleFont = Theme.font(m(14), .regular)
         let metaFont = Theme.font(m(13), .medium)
@@ -235,7 +290,7 @@ private final class StreamListView: NSView {
         let separator = "  ·  "
         for (text, color) in details {
             let pieceWidth = Draw.width(separator + text, font: metaFont)
-            guard metaX + pieceWidth <= bounds.width else { break }
+            guard metaX + pieceWidth <= right else { break }
             Draw.text(separator, in: CGRect(x: metaX, y: lineY, width: pieceWidth, height: Draw.lineHeight(metaFont)),
                       font: metaFont, color: Theme.textTertiary)
             Draw.text(text, in: CGRect(x: metaX + Draw.width(separator, font: metaFont), y: lineY, width: pieceWidth,
@@ -255,7 +310,7 @@ private final class StreamListView: NSView {
         if let key = ref.cacheKey, !requestedImages.contains(key) {
             requestedImages.insert(key)
             ImageStore.shared.load(ref, variant: .poster) { [weak self] image in
-                if image != nil { self?.needsDisplay = true }
+                if image != nil { self?.render() }
             }
         }
         return nil
