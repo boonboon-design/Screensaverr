@@ -67,12 +67,16 @@ final class NowPlayingView: NSView {
     }
 
     private func updateRows() {
+        let inner = self.inner
         let rowsTop = headerBottom + metrics(14)
         let available = inner.maxY - rowsTop
+        // Before layout the box has zero size, so `inner` is a null rect at infinity.
+        guard !sessions.isEmpty, !inner.isNull, available.isFinite, available > 0 else {
+            clip.isHidden = true
+            return
+        }
         capacity = max(1, Int((available + pitch - rowHeight) / pitch))
-
-        clip.isHidden = sessions.isEmpty
-        guard !sessions.isEmpty else { return }
+        clip.isHidden = false
 
         let visibleHeight = CGFloat(capacity) * pitch - (pitch - rowHeight)
         clip.frame = CGRect(x: inner.minX, y: rowsTop - fade, width: inner.width, height: visibleHeight + fade * 2)
@@ -111,7 +115,7 @@ final class NowPlayingView: NSView {
     /// Called once a second by the dashboard; glides to the next stream every few seconds.
     func tick(_ ticks: Int) {
         // The first glide comes five seconds in, then one every `interval` seconds.
-        guard isScrolling, !isAnimating, !isHiddenOrHasHiddenAncestor, ticks % interval == 5 else { return }
+        guard isScrolling, !isAnimating, !clip.isHiddenOrHasHiddenAncestor, ticks % interval == 5 else { return }
         scrollIndex += 1
         isAnimating = true
         let target = listOrigin
