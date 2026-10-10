@@ -139,6 +139,16 @@ final class TransformerTests: XCTestCase {
         XCTAssertEqual(fourK.requestedBy, "Someone")
     }
 
+    func testDeclinedAndDeletedRequestsAreHidden() throws {
+        let page = try JSONSupport.decode(SeerrRequestPage.self, from: response("seerr_requests"), serviceName: "Seerr")
+        let requests = try XCTUnwrap(page.results?.elements)
+        XCTAssertEqual(requests.filter(Transformers.isShown).map(\.id), [11, 12, 13, 15], "#14 is declined")
+
+        var deleted = requests[2]
+        deleted.media?.status = 7
+        XCTAssertFalse(Transformers.isShown(deleted))
+    }
+
     func testSeasonsLabel() {
         XCTAssertNil(Transformers.seasonsLabel([]))
         XCTAssertEqual(Transformers.seasonsLabel([3]), "Season 3")

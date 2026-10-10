@@ -237,7 +237,9 @@ final class DashboardStore {
 
     private func fetchRequests(config: ServiceConfig, count: Int) async throws -> RequestsData {
         let client = SeerrClient(config: config, http: http)
-        let raw = try await client.recentRequests(count: count)
+        // Fetch extra so hiding declined/deleted requests doesn't leave the list short.
+        let fetched = try await client.recentRequests(count: count + 20)
+        let raw = Array(fetched.filter(Transformers.isShown).prefix(count))
         let counts = try? await client.counts()
         let recent = (try? await client.recentlyAdded(count: 20)) ?? []
 

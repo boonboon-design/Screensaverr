@@ -211,6 +211,12 @@ enum Transformers {
         )
     }
 
+    /// Declined and deleted requests aren't shown on screen.
+    static func isShown(_ request: SeerrRequest) -> Bool {
+        let status = requestStatus(request)
+        return status != .declined && status != .deleted
+    }
+
     static func requestStatus(_ request: SeerrRequest) -> RequestStatus {
         let mediaStatus = request.is4k == true ? request.media?.status4k : request.media?.status
         switch request.status {
