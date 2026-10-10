@@ -15,6 +15,8 @@ jobs:
     name: Test, build and screenshot
     runs-on: macos-15
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +77,21 @@ jobs:
         with:
           name: Screensaverr.saver
           path: dist/Screensaverr.saver.zip
+
+      # Keeps the latest screenshots on a throwaway branch so they can be viewed without
+      # downloading artifacts (the branch is force-pushed and holds a single commit).
+      - name: Publish screenshots to the ci-screenshots branch
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && hashFiles('screenshots/*.png') != '' }}
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd screenshots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add *.png
+          git commit -q -m "Screenshots for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
 
       - uses: actions/upload-artifact@v4
         if: always()

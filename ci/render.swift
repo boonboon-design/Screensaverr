@@ -112,30 +112,6 @@ func save(_ image: CGImage, _ name: String) {
     print("saved \(url.path) (\(image.width)x\(image.height))")
 }
 
-/// Prints a small JPEG as base64 so the screenshot can be read straight from the CI log.
-@MainActor
-func printPreview(_ image: CGImage, _ name: String, width: Int) {
-    let height = Int(Double(width) * Double(image.height) / Double(image.width))
-    guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
-    else { return }
-    context.interpolationQuality = .high
-    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-    guard let small = context.makeImage(),
-          let jpeg = NSBitmapImageRep(cgImage: small).representation(using: .jpeg, properties: [.compressionFactor: 0.72])
-    else { return }
-    print("BEGIN-PREVIEW \(name) \(jpeg.count)")
-    let encoded = jpeg.base64EncodedString()
-    var start = encoded.startIndex
-    while start < encoded.endIndex {
-        let end = encoded.index(start, offsetBy: 2000, limitedBy: encoded.endIndex) ?? encoded.endIndex
-        print("PREVIEW:" + encoded[start..<end])
-        start = end
-    }
-    print("END-PREVIEW \(name)")
-}
-
 /// Lets the run loop (timers, network callbacks, Core Animation) run for a while.
 @MainActor
 func pause(_ duration: TimeInterval) async {
@@ -143,7 +119,7 @@ func pause(_ duration: TimeInterval) async {
 }
 
 @MainActor
-func shoot(_ window: NSWindow, _ name: String, previewWidth: Int) async {
+func shoot(_ window: NSWindow, _ name: String) async {
     window.displayIfNeeded()
     CATransaction.flush()
     await pause(0.5)
@@ -158,7 +134,6 @@ func shoot(_ window: NSWindow, _ name: String, previewWidth: Int) async {
         return
     }
     save(image, name + ".png")
-    printPreview(image, name, width: previewWidth)
 }
 
 // MARK: Scenes
@@ -183,7 +158,7 @@ func runScenes() async {
     saver.startAnimation()
     print("running for \(Int(seconds))s…")
     await pause(seconds)
-    await shoot(window, "screensaver", previewWidth: 1280)
+    await shoot(window, "screensaver")
 
     // System Settings-sized preview
     let thumbFrame = NSRect(x: 0, y: 0, width: 296, height: 184)
@@ -195,7 +170,7 @@ func runScenes() async {
         thumbWindow.orderFrontRegardless()
         thumb.startAnimation()
         await pause(3)
-        await shoot(thumbWindow, "preview-thumbnail", previewWidth: 296)
+        await shoot(thumbWindow, "preview-thumbnail")
         thumb.stopAnimation()
     }
 
@@ -207,7 +182,7 @@ func runScenes() async {
     sheet.setFrameOrigin(NSPoint(x: 100, y: 100))
     sheet.orderFrontRegardless()
     await pause(2)
-    await shoot(sheet, "options-sheet", previewWidth: 560)
+    await shoot(sheet, "options-sheet")
 
     saver.stopAnimation()
     print("done")
