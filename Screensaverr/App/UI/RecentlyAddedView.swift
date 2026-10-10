@@ -47,7 +47,7 @@ final class RecentlyAddedView: NSView {
     private var headerHeight: CGFloat { metrics(36) }
     private var captionHeight: CGFloat { metrics(42) }
     /// Room under the captions for the page dots.
-    private var dotsHeight: CGFloat { metrics(16) }
+    private var dotsHeight: CGFloat { metrics(30) }
     private var spacing: CGFloat { metrics(18) }
 
     private var posterSize: CGSize {
@@ -128,7 +128,8 @@ final class RecentlyAddedView: NSView {
         let radius = m(3.5)
         let gap = m(12)
         var x = bounds.width / 2 - CGFloat(pageCount - 1) * gap / 2
-        let y = bounds.height - dotsHeight / 2
+        // Sit near the bottom edge, well clear of the captions.
+        let y = bounds.height - radius - metrics(3)
         for index in 0..<pageCount {
             Draw.dot(at: CGPoint(x: x, y: y), radius: radius,
                      color: index == page ? accent : NSColor(white: 1, alpha: 0.18))
