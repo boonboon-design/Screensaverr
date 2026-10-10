@@ -395,8 +395,7 @@ enum Transformers {
             timeLeft: (timeLeft ?? 0) > 0 ? timeLeft : nil,
             itemCount: Int(queue.noofslotsTotal?.value ?? queue.noofslots?.value ?? Double(items.count)),
             items: items,
-            recent: recent,
-            downloadedToday: history?.daySize.flatMap { Formatting.sabSize($0) }
+            recent: recent
         )
     }
 }

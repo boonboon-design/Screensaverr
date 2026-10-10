@@ -186,15 +186,7 @@ struct SABHistoryResponse: Decodable {
 }
 
 struct SABHistory: Decodable {
-    var daySize: String?
-    var weekSize: String?
     var slots: LossyArray<SABHistorySlot>?
-
-    enum CodingKeys: String, CodingKey {
-        case daySize = "day_size"
-        case weekSize = "week_size"
-        case slots
-    }
 }
 
 struct SABHistorySlot: Decodable {

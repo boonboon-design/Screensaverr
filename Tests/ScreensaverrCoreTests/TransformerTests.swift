@@ -244,7 +244,6 @@ final class TransformerTests: XCTestCase {
         XCTAssertEqual(data.items[0].category, "tv")
         XCTAssertTrue(data.items[0].isActive)
         XCTAssertNil(data.items[1].category, "\"*\" means no category")
-        XCTAssertEqual(data.downloadedToday, "34.2 GB")
         XCTAssertEqual(data.recent.count, 2)
         XCTAssertTrue(data.recent[1].failed)
         XCTAssertEqual(data.recent[0].completedAt, Date(timeIntervalSince1970: 1_791_626_400))
@@ -257,7 +256,6 @@ final class TransformerTests: XCTestCase {
         let data = Transformers.downloads(queue: queue, history: nil)
         XCTAssertEqual(data.state, .paused)
         XCTAssertEqual(data.bytesPerSecond, 0)
-        XCTAssertNil(data.downloadedToday)
     }
 
     func testSABBadKeyEnvelope() throws {

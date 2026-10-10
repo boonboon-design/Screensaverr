@@ -74,13 +74,6 @@ final class FormattingTests: XCTestCase {
         XCTAssertEqual(Formatting.speedParts(0).unit, "B/s")
     }
 
-    func testSABSizes() {
-        XCTAssertEqual(Formatting.sabSize("34.2 G"), "34.2 GB")
-        XCTAssertEqual(Formatting.sabSize("850.0 M"), "850.0 MB")
-        XCTAssertEqual(Formatting.sabSize("0 "), "0 B")
-        XCTAssertNil(Formatting.sabSize(""))
-    }
-
     func testDurations() {
         XCTAssertEqual(Formatting.parseSABTime("0:12:34"), 754)
         XCTAssertEqual(Formatting.parseSABTime("1:02:03:04"), 93_784)

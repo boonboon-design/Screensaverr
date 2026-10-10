@@ -39,18 +39,6 @@ enum Formatting {
         return (text, units[index])
     }
 
-    /// SABnzbd reports sizes as "12.3 G" / "850.2 M"; make them read "12.3 GB".
-    static func sabSize(_ text: String) -> String? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return nil }
-        let parts = trimmed.split(separator: " ")
-        guard let first = parts.first, let number = Double(first) else { return trimmed }
-        if number == 0 { return "0 B" }
-        guard parts.count == 2 else { return trimmed }
-        let unit = String(parts[1])
-        return unit.count == 1 && unit != "B" ? "\(parts[0]) \(unit)B" : trimmed
-    }
-
     // MARK: Durations
 
     /// Parses SABnzbd's "H:MM:SS" or "D:HH:MM:SS".

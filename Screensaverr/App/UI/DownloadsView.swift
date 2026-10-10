@@ -228,7 +228,6 @@ final class DownloadsView: NSView {
         if let data {
             if data.remainingBytes > 0 { parts.append("\(Formatting.bytes(data.remainingBytes)) left") }
             if let timeLeft = data.timeLeft, data.state == .downloading { parts.append(Formatting.duration(timeLeft)) }
-            if let today = data.downloadedToday, today != "0 B" { parts.append("\(today) today") }
         }
         Draw.text(parts.joined(separator: "  ·  "), in: CGRect(x: rect.minX, y: summaryY, width: rect.width, height: summaryHeight),
                   font: summaryFont, color: Theme.textSecondary)

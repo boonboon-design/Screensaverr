@@ -211,7 +211,6 @@ struct DownloadsData: Codable, Hashable {
     var itemCount: Int
     var items: [DownloadItem]
     var recent: [HistoryItem]
-    var downloadedToday: String?
 }
 
 struct SpeedSample: Codable, Hashable {
