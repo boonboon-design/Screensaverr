@@ -16,6 +16,7 @@ enum Theme {
     static let blue = NSColor(srgbRed: 0.38, green: 0.65, blue: 1.00, alpha: 1)
     static let teal = NSColor(srgbRed: 0.30, green: 0.82, blue: 0.85, alpha: 1)
     static let violet = NSColor(srgbRed: 0.62, green: 0.53, blue: 1.00, alpha: 1)
+    static let orange = NSColor(srgbRed: 1.00, green: 0.60, blue: 0.22, alpha: 1)
 
     static func accent(_ kind: ServiceKind) -> NSColor {
         switch kind {
@@ -23,6 +24,7 @@ enum Theme {
         case .radarr: return NSColor(srgbRed: 1.00, green: 0.78, blue: 0.24, alpha: 1)
         case .seerr: return violet
         case .sabnzbd: return green
+        case .tautulli: return orange
         }
     }
 

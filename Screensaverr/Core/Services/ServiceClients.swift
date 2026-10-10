@@ -85,6 +85,17 @@ struct SeerrClient {
         return page.results?.elements ?? []
     }
 
+    /// What Seerr's home page shows under "Recently Added".
+    func recentlyAdded(count: Int) async throws -> [SeerrMediaItem] {
+        let query = [
+            URLQueryItem(name: "filter", value: "allavailable"),
+            URLQueryItem(name: "take", value: String(count)),
+            URLQueryItem(name: "sort", value: "mediaAdded"),
+        ]
+        let page = try await requester.getJSON(SeerrMediaPage.self, "/api/v1/media", query: query, serviceName: "Seerr")
+        return page.results?.elements ?? []
+    }
+
     func details(mediaKind: MediaKind, tmdbId: Int) async throws -> SeerrMediaDetails {
         let path = mediaKind == .tv ? "/api/v1/tv/\(tmdbId)" : "/api/v1/movie/\(tmdbId)"
         return try await requester.getJSON(SeerrMediaDetails.self, path, serviceName: "Seerr")
@@ -145,6 +156,46 @@ struct SABnzbdClient {
     }
 }
 
+// MARK: - Tautulli
+
+struct TautulliClient {
+    let requester: APIRequester
+
+    init(config: ServiceConfig, http: HTTPClient = .shared) {
+        var requester = APIRequester(config: config, http: http)
+        requester.sendsKeyHeader = false // Tautulli takes the key as a query parameter.
+        requester.timeout = 10
+        self.requester = requester
+    }
+
+    private func call<T: Decodable>(_ type: T.Type, cmd: String) async throws -> T {
+        let query = [
+            URLQueryItem(name: "apikey", value: requester.config.trimmedAPIKey),
+            URLQueryItem(name: "cmd", value: cmd),
+        ]
+        let response = try await requester.get("/api/v2", query: query, authenticated: false)
+        let envelope = try JSONSupport.decode(TautulliEnvelope<T>.self, from: response, serviceName: "Tautulli")
+        if let result = envelope.response?.result, result.lowercased() != "success" {
+            let message = envelope.response?.message ?? "Tautulli returned an error."
+            if message.lowercased().contains("apikey") { throw ServiceError.unauthorized(response.statusCode) }
+            throw ServiceError.server("Tautulli: \(message)")
+        }
+        guard let data = envelope.response?.data else {
+            throw ServiceError.unexpectedResponse("Couldn't read the response from Tautulli.")
+        }
+        return data
+    }
+
+    func info() async throws -> TautulliInfo {
+        try await call(TautulliInfo.self, cmd: "get_tautulli_info")
+    }
+
+    func activity() async throws -> NowPlayingData {
+        let activity = try await call(TautulliActivity.self, cmd: "get_activity")
+        return Transformers.nowPlaying(activity, baseURL: requester.config.baseURL, apiKey: requester.config.trimmedAPIKey)
+    }
+}
+
 // MARK: - Connection test (used by the Options sheet)
 
 enum ConnectionTester {
@@ -180,6 +231,14 @@ enum ConnectionTester {
             let version = try await client.version()
             _ = try await client.queue(limit: 1)
             return "Connected to SABnzbd \(version ?? "")".trimmingCharacters(in: .whitespaces)
+
+        case .tautulli:
+            let client = TautulliClient(config: config, http: http)
+            let info = try await client.info()
+            let activity = try await client.activity()
+            var message = "Connected to Tautulli \(info.tautulliVersion ?? "")".trimmingCharacters(in: .whitespaces)
+            message += activity.streamCount == 1 ? " · 1 stream" : " · \(activity.streamCount) streams"
+            return message
         }
     }
 }

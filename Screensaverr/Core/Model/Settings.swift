@@ -6,6 +6,7 @@ enum ServiceKind: String, Codable, CaseIterable, Identifiable {
     case radarr
     case seerr
     case sabnzbd
+    case tautulli
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum ServiceKind: String, Codable, CaseIterable, Identifiable {
         case .radarr: return "Radarr"
         case .seerr: return "Seerr"
         case .sabnzbd: return "SABnzbd"
+        case .tautulli: return "Tautulli"
         }
     }
 
@@ -24,6 +26,7 @@ enum ServiceKind: String, Codable, CaseIterable, Identifiable {
         case .radarr: return "http://192.168.1.10:7878"
         case .seerr: return "http://192.168.1.10:5055"
         case .sabnzbd: return "http://192.168.1.10:8080"
+        case .tautulli: return "http://192.168.1.10:8181"
         }
     }
 
@@ -33,6 +36,7 @@ enum ServiceKind: String, Codable, CaseIterable, Identifiable {
         case .sonarr, .radarr: return "Settings → General → Security → API Key"
         case .seerr: return "Settings → General → API Key"
         case .sabnzbd: return "Config → General → Security → API Key"
+        case .tautulli: return "Settings → Web Interface → API (turn on Enable API)"
         }
     }
 }
@@ -81,7 +85,7 @@ struct ServiceConfig: Codable, Equatable {
 
         var path = components.path
         while path.hasSuffix("/") { path.removeLast() }
-        for suffix in ["/api/v3", "/api/v1", "/api"] where path.lowercased().hasSuffix(suffix) {
+        for suffix in ["/api/v3", "/api/v2", "/api/v1", "/api"] where path.lowercased().hasSuffix(suffix) {
             path.removeLast(suffix.count)
             break
         }
@@ -112,6 +116,7 @@ struct AppSettings: Codable, Equatable {
     var radarr = ServiceConfig()
     var seerr = ServiceConfig()
     var sabnzbd = ServiceConfig()
+    var tautulli = ServiceConfig()
 
     var tvDaysAhead: Int = 7
     var movieDaysAhead: Int = 60
@@ -128,6 +133,7 @@ struct AppSettings: Codable, Equatable {
         radarr = try c.decodeIfPresent(ServiceConfig.self, forKey: .radarr) ?? defaults.radarr
         seerr = try c.decodeIfPresent(ServiceConfig.self, forKey: .seerr) ?? defaults.seerr
         sabnzbd = try c.decodeIfPresent(ServiceConfig.self, forKey: .sabnzbd) ?? defaults.sabnzbd
+        tautulli = try c.decodeIfPresent(ServiceConfig.self, forKey: .tautulli) ?? defaults.tautulli
         tvDaysAhead = try c.decodeIfPresent(Int.self, forKey: .tvDaysAhead) ?? defaults.tvDaysAhead
         movieDaysAhead = try c.decodeIfPresent(Int.self, forKey: .movieDaysAhead) ?? defaults.movieDaysAhead
         requestCount = try c.decodeIfPresent(Int.self, forKey: .requestCount) ?? defaults.requestCount
@@ -143,6 +149,7 @@ struct AppSettings: Codable, Equatable {
             case .radarr: return radarr
             case .seerr: return seerr
             case .sabnzbd: return sabnzbd
+            case .tautulli: return tautulli
             }
         }
         set {
@@ -151,6 +158,7 @@ struct AppSettings: Codable, Equatable {
             case .radarr: radarr = newValue
             case .seerr: seerr = newValue
             case .sabnzbd: sabnzbd = newValue
+            case .tautulli: tautulli = newValue
             }
         }
     }

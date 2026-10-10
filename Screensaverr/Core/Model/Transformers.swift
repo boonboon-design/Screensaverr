@@ -237,6 +237,104 @@ enum Transformers {
         return "\(numbers.count) seasons"
     }
 
+    static func recentItem(_ media: SeerrMediaItem, details: SeerrMediaDetails?) -> RecentItem? {
+        guard let tmdbId = media.tmdbId else { return nil }
+        let kind: MediaKind = media.mediaType == "tv" ? .tv : .movie
+        let yearText = (details?.releaseDate ?? details?.firstAirDate).map { String($0.prefix(4)) }
+        return RecentItem(
+            id: "\(kind.rawValue)-\(tmdbId)",
+            title: details?.title ?? details?.name ?? "TMDB #\(tmdbId)",
+            year: yearText.flatMap { Int($0) },
+            mediaKind: kind,
+            addedAt: JSONSupport.parseDate(media.mediaAddedAt),
+            poster: tmdbImage(details?.posterPath, size: "w342"),
+            backdrop: tmdbImage(details?.backdropPath, size: "w1280")
+        )
+    }
+
+    // MARK: Tautulli
+
+    /// Builds the Now Playing list. Posters go through Tautulli's image proxy, which needs
+    /// the API key in the query string.
+    static func nowPlaying(_ activity: TautulliActivity, baseURL: URL?, apiKey: String) -> NowPlayingData {
+        let sessions = (activity.sessions?.elements ?? []).enumerated().map { index, session -> StreamItem in
+            let type = session.mediaType?.lowercased() ?? ""
+            var title = session.fullTitle ?? session.title ?? "Unknown"
+            var subtitle: String?
+            var thumb = session.thumb
+            switch type {
+            case "episode":
+                title = session.grandparentTitle ?? title
+                var parts: [String] = []
+                if let season = session.parentMediaIndex?.value, let episode = session.mediaIndex?.value {
+                    parts.append(String(format: "S%02dE%02d", Int(season), Int(episode)))
+                }
+                if let episodeTitle = session.title, !episodeTitle.isEmpty { parts.append(episodeTitle) }
+                subtitle = parts.isEmpty ? nil : parts.joined(separator: " · ")
+                thumb = session.grandparentThumb ?? session.parentThumb ?? session.thumb
+            case "movie":
+                title = session.title ?? title
+                subtitle = session.year?.value.map { String(Int($0)) }
+            case "track":
+                title = session.grandparentTitle ?? title
+                subtitle = [session.title, session.parentTitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+                thumb = session.parentThumb ?? session.thumb
+            default:
+                if session.live?.value == true, let channel = session.channelTitle, !channel.isEmpty {
+                    subtitle = channel
+                }
+            }
+
+            let decision: String?
+            switch session.transcodeDecision?.lowercased() {
+            case "transcode": decision = "Transcode"
+            case "copy": decision = "Direct Stream"
+            case "direct play": decision = "Direct Play"
+            default: decision = nil
+            }
+
+            let user = [session.friendlyName, session.user, session.username]
+                .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+                .first { !$0.isEmpty } ?? "Someone"
+
+            return StreamItem(
+                id: session.sessionKey ?? session.sessionId ?? "stream-\(index)",
+                title: title,
+                subtitle: subtitle?.isEmpty == true ? nil : subtitle,
+                user: user,
+                state: session.state ?? "playing",
+                progress: min(max((session.progressPercent?.value ?? 0) / 100, 0), 1),
+                decision: decision,
+                quality: session.streamVideoFullResolution.flatMap { $0.isEmpty ? nil : $0 },
+                player: session.player ?? session.product,
+                poster: tautulliImage(thumb, baseURL: baseURL, apiKey: apiKey)
+            )
+        }
+        let count = activity.streamCount?.value.map { Int($0) } ?? sessions.count
+        return NowPlayingData(
+            streamCount: max(count, sessions.count),
+            transcodeCount: Int(activity.streamCountTranscode?.value ?? 0),
+            sessions: sessions
+        )
+    }
+
+    static func tautulliImage(_ path: String?, baseURL: URL?, apiKey: String) -> ImageRef? {
+        guard let path, !path.isEmpty, let baseURL,
+              var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+        else { return nil }
+        components.path += "/api/v2"
+        components.queryItems = [
+            URLQueryItem(name: "apikey", value: apiKey),
+            URLQueryItem(name: "cmd", value: "pms_image_proxy"),
+            URLQueryItem(name: "img", value: path),
+            URLQueryItem(name: "width", value: "300"),
+            URLQueryItem(name: "height", value: "450"),
+            URLQueryItem(name: "fallback", value: "poster"),
+        ]
+        guard let url = components.url else { return nil }
+        return ImageRef(remoteURL: nil, localURL: url, service: nil)
+    }
+
     // MARK: SABnzbd
 
     static let mebibyte = 1024.0 * 1024.0

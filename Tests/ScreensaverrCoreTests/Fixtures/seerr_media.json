@@ -1,0 +1,6 @@
+{"pageInfo": {"pages": 1, "pageSize": 20, "results": 3, "page": 1},
+ "results": [
+   {"id": 1, "mediaType": "movie", "tmdbId": 100, "status": 5, "mediaAddedAt": "2026-10-10T10:00:00.000Z"},
+   {"id": 2, "mediaType": "tv", "tmdbId": 200, "tvdbId": 2000, "status": 4, "mediaAddedAt": "2026-10-09T12:00:00.000Z"},
+   {"id": 3, "mediaType": "movie", "status": 5}
+ ]}

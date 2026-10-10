@@ -141,6 +141,49 @@ def seerr_requests():
     return {"pageInfo": {"pages": 1, "pageSize": 10, "results": len(results), "page": 1}, "results": results}
 
 
+RECENT = [
+    # tmdb, type, title, year, hours ago
+    (601, "movie", "Lanterns", 2026, 2),
+    (602, "tv", "The Quiet Coast", 2025, 5),
+    (603, "movie", "Second Sunrise", 2026, 9),
+    (604, "movie", "Ironwood", 2024, 20),
+    (605, "tv", "Hollow Pines", 2026, 30),
+    (606, "movie", "Paper Moons", 2026, 44),
+    (607, "movie", "North by Night", 2023, 60),
+    (608, "tv", "Saltwater", 2022, 80),
+    (609, "movie", "Glasswing", 2026, 96),
+]
+for tmdb, kind, title, year, _ in RECENT:
+    DETAILS[tmdb] = {"title" if kind == "movie" else "name": title,
+                     "releaseDate" if kind == "movie" else "firstAirDate": f"{year}-05-01"}
+
+
+def seerr_media():
+    results = [{"id": i, "tmdbId": tmdb, "mediaType": kind, "status": 5,
+                "mediaAddedAt": iso(NOW - dt.timedelta(hours=hours)).replace("Z", ".000Z")}
+               for i, (tmdb, kind, _, _, hours) in enumerate(RECENT, start=1)]
+    return {"pageInfo": {"pages": 1, "pageSize": 20, "results": len(results), "page": 1}, "results": results}
+
+
+def tautulli_activity():
+    sessions = [
+        {"session_key": "41", "media_type": "episode", "grandparent_title": "Harbor Lights", "title": "The Keeper",
+         "parent_media_index": "3", "media_index": "2", "friendly_name": "Alice", "user": "alice",
+         "state": "playing", "progress_percent": "37", "transcode_decision": "direct play",
+         "stream_video_full_resolution": "4k", "player": "Living Room",
+         "grandparent_thumb": "/library/metadata/100/thumb/1"},
+        {"session_key": "42", "media_type": "movie", "title": "Paper Moons", "year": "2026",
+         "friendly_name": "bob", "state": "paused", "progress_percent": "81", "transcode_decision": "transcode",
+         "stream_video_full_resolution": "1080p", "player": "iPad", "thumb": "/library/metadata/200/thumb/1"},
+        {"session_key": "43", "media_type": "episode", "grandparent_title": "Orbit", "title": "Perigee",
+         "parent_media_index": "4", "media_index": "10", "friendly_name": "Carol", "state": "playing",
+         "progress_percent": "12", "transcode_decision": "copy", "stream_video_full_resolution": "1080p",
+         "grandparent_thumb": "/library/metadata/300/thumb/1"},
+    ]
+    return {"stream_count": str(len(sessions)), "stream_count_direct_play": 1, "stream_count_direct_stream": 1,
+            "stream_count_transcode": 1, "total_bandwidth": 48000, "sessions": sessions}
+
+
 def seerr_details(kind, tmdb):
     d = dict(DETAILS.get(tmdb, {"title": f"Item {tmdb}"}))
     d["id"] = tmdb
@@ -235,6 +278,18 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
 
+    def send_image(self, name):
+        if name not in IMAGE_CACHE:
+            poster = name.startswith("poster")
+            w, h = (300, 450) if poster else (960, 540)
+            IMAGE_CACHE[name] = png(w, h, hashlib.md5(name.encode()).hexdigest(), poster)
+        body = IMAGE_CACHE[name]
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def authed(self):
         return self.headers.get("X-Api-Key") == KEY
 
@@ -243,18 +298,7 @@ class Handler(BaseHTTPRequestHandler):
         path, query = url.path, parse_qs(url.query)
 
         if path.startswith("/img/"):
-            name = path[len("/img/"):]
-            if name not in IMAGE_CACHE:
-                poster = name.startswith("poster")
-                w, h = (300, 450) if poster else (960, 540)
-                IMAGE_CACHE[name] = png(w, h, hashlib.md5(name.encode()).hexdigest(), poster)
-            body = IMAGE_CACHE[name]
-            self.send_response(200)
-            self.send_header("Content-Type", "image/png")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+            return self.send_image(path[len("/img/"):])
 
         for app in ("sonarr", "radarr"):
             prefix = f"/{app}/api/v3/"
@@ -280,6 +324,8 @@ class Handler(BaseHTTPRequestHandler):
                                        "declined": 1, "processing": 3, "available": 30, "completed": 8})
             if endpoint == "request":
                 return self.send_json(seerr_requests())
+            if endpoint == "media":
+                return self.send_json(seerr_media())
             parts = endpoint.split("/")
             if len(parts) == 2 and parts[0] in ("movie", "tv"):
                 return self.send_json(seerr_details(parts[0], int(parts[1])))
@@ -296,6 +342,20 @@ class Handler(BaseHTTPRequestHandler):
             if mode == "history":
                 return self.send_json(sab_history())
             return self.send_json({"status": False, "error": "not implemented"})
+
+        if path == "/tautulli/api/v2":
+            cmd = query.get("cmd", [""])[0]
+            if query.get("apikey", [""])[0] != KEY:
+                return self.send_json({"response": {"result": "error", "message": "Invalid apikey", "data": {}}}, 401)
+            if cmd == "pms_image_proxy":
+                return self.send_image("poster-" + query.get("img", ["x"])[0].replace("/", "-") + ".png")
+            if cmd == "get_tautulli_info":
+                data = {"tautulli_version": "v2.15.3"}
+            elif cmd == "get_activity":
+                data = tautulli_activity()
+            else:
+                return self.send_json({"response": {"result": "error", "message": "Unknown command", "data": {}}}, 400)
+            return self.send_json({"response": {"result": "success", "message": None, "data": data}})
 
         self.send_json({"error": "not found"}, 404)
 

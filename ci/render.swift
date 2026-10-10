@@ -28,6 +28,7 @@ let settings: [String: Any] = [
     "radarr": ["url": "\(base)/radarr/", "apiKey": "testkey"],
     "seerr": ["url": "127.0.0.1:\(port)/seerr", "apiKey": "testkey"],
     "sabnzbd": ["url": "\(base)/sab", "apiKey": "testkey"],
+    "tautulli": ["url": "\(base)/tautulli", "apiKey": "testkey"],
     "tvDaysAhead": 7,
     "movieDaysAhead": 60,
     "requestCount": 8,

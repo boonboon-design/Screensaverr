@@ -2,11 +2,16 @@ import AppKit
 
 /// SABnzbd: current speed with a live graph, queue progress and recent history.
 ///
-/// Normally a slim one-row bar along the bottom of the screen; when SABnzbd is the only
-/// service set up it becomes a large panel instead.
+/// Normally a small box in the bottom-left corner; when SABnzbd is the only service set up it
+/// becomes a large panel instead.
 final class DownloadsView: NSView {
-    var compact = true {
-        didSet { if compact != oldValue { needsDisplay = true } }
+    enum Style {
+        case box
+        case panel
+    }
+
+    var style = Style.box {
+        didSet { if style != oldValue { needsDisplay = true } }
     }
 
     var metrics = Metrics(size: CGSize(width: 1920, height: 1080)) {
@@ -36,8 +41,8 @@ final class DownloadsView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let m = metrics
-        if compact {
-            drawCompact(m: m)
+        if style == .box {
+            drawBox(m: m)
             return
         }
         Draw.roundedRect(bounds, radius: m(26), fill: Theme.panelFill)
@@ -71,51 +76,15 @@ final class DownloadsView: NSView {
     }
 
 
-    // MARK: Compact bar
+    // MARK: Box (bottom-left corner)
 
-    private func drawCompact(m: Metrics) {
-        let radius = m(20)
-        Draw.roundedRect(bounds, radius: radius, fill: Theme.panelFill)
-        Theme.hairline.setStroke()
-        let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
-        border.lineWidth = 1
-        border.stroke()
-
-        let inner = bounds.insetBy(dx: m(28), dy: m(16))
-        let gap = m(40)
-        let statsRect = CGRect(x: inner.minX, y: inner.minY, width: (inner.width * 0.33).rounded(), height: inner.height)
-        let summaryWidth = (inner.width * 0.22).rounded()
-        let summaryRect = CGRect(x: inner.maxX - summaryWidth, y: inner.minY, width: summaryWidth, height: inner.height)
-        let itemRect = CGRect(x: statsRect.maxX + gap, y: inner.minY,
-                              width: max(0, summaryRect.minX - gap - statsRect.maxX - gap), height: inner.height)
-
-        Theme.hairline.setFill()
-        for x in [statsRect.maxX + gap / 2, summaryRect.minX - gap / 2] {
-            CGRect(x: x, y: inner.minY + m(4), width: max(1, m(1.5)), height: inner.height - m(8)).fill(using: .sourceOver)
-        }
-
-        drawCompactStats(in: statsRect, m: m)
-
-        guard let data = state.value else {
-            let title = state.error != nil ? "Can't reach SABnzbd" : "Connecting to SABnzbd…"
-            drawTwoLines(title, state.error, in: itemRect, m: m)
-            return
-        }
-        drawCompactItem(data, in: itemRect, m: m)
-        drawCompactSummary(data, in: summaryRect, m: m)
-    }
-
-    private func drawCompactStats(in rect: CGRect, m: Metrics) {
+    private func drawBox(m: Metrics) {
+        Draw.panel(bounds, m: m)
+        let inner = bounds.insetBy(dx: m(24), dy: m(20))
         let data = state.value
 
-        // Line 1: label + state
-        let labelFont = Theme.font(m(14), .semibold)
-        let labelHeight = Draw.lineHeight(labelFont)
-        let dotRadius = m(4.5)
-        Draw.dot(at: CGPoint(x: rect.minX + dotRadius, y: rect.minY + labelHeight / 2 + m(1)), radius: dotRadius, color: accent)
-        var labelRight = rect.minX + dotRadius * 2 + m(10)
-        labelRight += Draw.text("DOWNLOADS", in: CGRect(x: labelRight, y: rect.minY, width: rect.width, height: labelHeight),
-                                font: labelFont, color: Theme.textSecondary, kern: m(1.8))
+        // Header: label + state pill
+        let headerBottom = Draw.sectionLabel("DOWNLOADS", accent: accent, at: inner.origin, width: inner.width, m: m)
         if let data {
             let color: NSColor
             switch data.state {
@@ -123,109 +92,90 @@ final class DownloadsView: NSView {
             case .paused: color = Theme.amber
             case .idle: color = Theme.textTertiary
             }
+            let pillFont = Theme.font(m(12), .bold)
             let pillHeight = m(20)
-            labelRight += m(10)
-            labelRight += Draw.pill(data.state.label, at: CGPoint(x: labelRight, y: rect.minY + (labelHeight - pillHeight) / 2),
-                                    font: Theme.font(m(12), .bold), color: color, height: pillHeight)
+            let pillWidth = Draw.width(data.state.label, font: pillFont) + pillHeight
+            Draw.pill(data.state.label, at: CGPoint(x: inner.maxX - pillWidth, y: inner.minY + (headerBottom - inner.minY - pillHeight) / 2),
+                      font: pillFont, color: color, height: pillHeight)
         }
 
-        // Line 2: speed
-        let speed = Formatting.speedParts(data?.bytesPerSecond ?? 0)
-        let speedFont = Theme.roundedFont(m(38), .semibold)
+        guard let data else {
+            let title = state.error != nil ? "Can't reach SABnzbd" : "Connecting to SABnzbd…"
+            Draw.message(title, detail: state.error, in: CGRect(x: inner.minX, y: headerBottom + m(14), width: inner.width,
+                                                                  height: inner.maxY - headerBottom - m(14)), m: m)
+            return
+        }
+
+        // Speed + peak
+        let speed = Formatting.speedParts(data.bytesPerSecond)
+        let speedFont = Theme.roundedFont(m(40), .semibold)
         let unitFont = Theme.font(m(17), .medium)
-        let speedY = rect.maxY - Draw.lineHeight(speedFont) + m(4)
-        let numberWidth = Draw.text(speed.value, in: CGRect(x: rect.minX - m(2), y: speedY, width: rect.width, height: Draw.lineHeight(speedFont)),
+        let speedY = headerBottom + m(6)
+        let speedHeight = Draw.lineHeight(speedFont)
+        let numberWidth = Draw.text(speed.value, in: CGRect(x: inner.minX - m(2), y: speedY, width: inner.width, height: speedHeight),
                                     font: speedFont, color: Theme.textPrimary)
-        let unitX = rect.minX + numberWidth + m(6)
-        let unitWidth = Draw.text(speed.unit, in: CGRect(x: unitX, y: speedY + speedFont.ascender - unitFont.ascender,
-                                                         width: rect.width, height: Draw.lineHeight(unitFont)),
-                                  font: unitFont, color: Theme.textSecondary)
+        Draw.text(speed.unit, in: CGRect(x: inner.minX + numberWidth + m(6), y: speedY + speedFont.ascender - unitFont.ascender,
+                                         width: inner.width, height: Draw.lineHeight(unitFont)),
+                  font: unitFont, color: Theme.textSecondary)
+        let peak = speedHistory.map(\.bytesPerSecond).max() ?? 0
+        if peak > 0 {
+            let peakFont = Theme.font(m(13), .medium)
+            Draw.text("peak \(Formatting.speed(peak))",
+                      in: CGRect(x: inner.minX, y: speedY + speedFont.ascender - peakFont.ascender,
+                                 width: inner.width, height: Draw.lineHeight(peakFont)),
+                      font: peakFont, color: Theme.textTertiary, alignment: .right)
+        }
 
-        // Sparkline fills the rest of the segment.
-        let graphX = max(labelRight, unitX + unitWidth) + m(24)
-        let graphRect = CGRect(x: graphX, y: rect.minY + m(6), width: rect.maxX - graphX, height: rect.height - m(8))
-        if graphRect.width > m(60) { drawGraph(in: graphRect, m: m) }
-    }
+        // Footer: queue summary (or the last finished job)
+        let footerFont = Theme.font(m(14), .medium)
+        let footerHeight = Draw.lineHeight(footerFont)
+        let footerY = inner.maxY - footerHeight
+        var footer: [String] = []
+        if data.itemCount > 0 {
+            footer.append(data.itemCount == 1 ? "1 in queue" : "\(data.itemCount) in queue")
+            if data.remainingBytes > 0 { footer.append("\(Formatting.bytes(data.remainingBytes)) left") }
+            if let timeLeft = data.timeLeft, data.state == .downloading { footer.append(Formatting.duration(timeLeft)) }
+        } else if let today = data.downloadedToday {
+            footer.append("\(today) today")
+        }
+        Draw.text(footer.joined(separator: " · "), in: CGRect(x: inner.minX, y: footerY, width: inner.width, height: footerHeight),
+                  font: footerFont, color: Theme.textSecondary)
 
-    private func drawCompactItem(_ data: DownloadsData, in rect: CGRect, m: Metrics) {
-        guard let item = data.items.first(where: { $0.isActive }) ?? data.items.first else {
+        // Current job (name + progress), just above the footer
+        let nameFont = Theme.font(m(16), .semibold)
+        let nameHeight = Draw.lineHeight(nameFont)
+        let barHeight = m(5)
+        let barY = footerY - m(9) - barHeight
+        let nameY = barY - m(5) - nameHeight
+        if let item = data.items.first(where: { $0.isActive }) ?? data.items.first {
+            let active = item.isActive && data.state == .downloading
+            let percentFont = Theme.font(m(15), .semibold, monospacedDigits: true)
+            let percent = "\(Int((item.progress * 100).rounded()))%"
+            let percentWidth = Draw.width(percent, font: percentFont) + m(4)
+            Draw.text(percent, in: CGRect(x: inner.maxX - percentWidth, y: nameY + m(1), width: percentWidth, height: nameHeight),
+                      font: percentFont, color: active ? accent : Theme.textSecondary, alignment: .right)
+            Draw.text(cleanName(item.name), in: CGRect(x: inner.minX, y: nameY, width: inner.width - percentWidth - m(10), height: nameHeight),
+                      font: nameFont, color: Theme.textPrimary)
+            Draw.progressBar(item.progress, in: CGRect(x: inner.minX, y: barY, width: inner.width, height: barHeight),
+                             color: active ? accent : Theme.textTertiary)
+        } else {
             let last = data.recent.first.map { item -> String in
                 let when = item.completedAt.map { " · \(Formatting.ago($0, now: Date()))" } ?? ""
                 return "\(item.failed ? "Failed" : "Last"): \(cleanName(item.name))\(when)"
             }
-            drawTwoLines("Queue is empty", last, in: rect, m: m)
-            return
+            Draw.text("Queue is empty", in: CGRect(x: inner.minX, y: nameY, width: inner.width, height: nameHeight),
+                      font: nameFont, color: Theme.textSecondary)
+            if let last {
+                let lastFont = Theme.font(m(13), .regular)
+                Draw.text(last, in: CGRect(x: inner.minX, y: nameY + nameHeight + m(2), width: inner.width, height: Draw.lineHeight(lastFont)),
+                          font: lastFont, color: Theme.textTertiary)
+            }
         }
 
-        let active = item.isActive && data.state == .downloading
-        let nameFont = Theme.font(m(19), .semibold)
-        let nameHeight = Draw.lineHeight(nameFont)
-        let metaFont = Theme.font(m(15), .medium, monospacedDigits: true)
-        let blockHeight = nameHeight + m(15) + Draw.lineHeight(metaFont)
-        let top = rect.minY + max(0, (rect.height - blockHeight) / 2)
-        let percentFont = Theme.font(m(18), .semibold, monospacedDigits: true)
-        let percent = "\(Int((item.progress * 100).rounded()))%"
-        let percentWidth = Draw.width(percent, font: percentFont) + m(4)
-        Draw.text(percent, in: CGRect(x: rect.maxX - percentWidth, y: top, width: percentWidth, height: nameHeight),
-                  font: percentFont, color: active ? accent : Theme.textSecondary, alignment: .right)
-        Draw.text(cleanName(item.name), in: CGRect(x: rect.minX, y: top, width: rect.width - percentWidth - m(12), height: nameHeight),
-                  font: nameFont, color: Theme.textPrimary)
-
-        let barY = top + nameHeight + m(5)
-        Draw.progressBar(item.progress, in: CGRect(x: rect.minX, y: barY, width: rect.width, height: m(5)),
-                         color: active ? accent : Theme.textTertiary)
-
-        var meta: [String] = []
-        if item.totalBytes > 0 {
-            meta.append("\(Formatting.bytes(item.totalBytes - item.remainingBytes)) of \(Formatting.bytes(item.totalBytes))")
-        }
-        if active, let timeLeft = item.timeLeft, timeLeft > 0 {
-            meta.append("\(Formatting.duration(timeLeft)) left")
-        } else if !active {
-            meta.append(item.status)
-        }
-        if let category = item.category { meta.append(category) }
-        Draw.text(meta.joined(separator: "  ·  "), in: CGRect(x: rect.minX, y: barY + m(10), width: rect.width, height: Draw.lineHeight(metaFont)),
-                  font: metaFont, color: Theme.textTertiary)
-    }
-
-    private func drawCompactSummary(_ data: DownloadsData, in rect: CGRect, m: Metrics) {
-        let titleFont = Theme.font(m(19), .semibold)
-        let lineFont = Theme.font(m(15), .medium)
-        let queued = data.itemCount == 1 ? "1 in queue" : "\(data.itemCount) in queue"
-        var y = rect.minY
-        Draw.text(data.itemCount == 0 ? "Queue empty" : queued,
-                  in: CGRect(x: rect.minX, y: y, width: rect.width, height: Draw.lineHeight(titleFont)),
-                  font: titleFont, color: Theme.textPrimary, alignment: .right)
-        y += Draw.lineHeight(titleFont) + m(2)
-
-        var left: [String] = []
-        if data.remainingBytes > 0 { left.append("\(Formatting.bytes(data.remainingBytes)) left") }
-        if let timeLeft = data.timeLeft, data.state == .downloading { left.append(Formatting.duration(timeLeft)) }
-        if !left.isEmpty {
-            Draw.text(left.joined(separator: " · "), in: CGRect(x: rect.minX, y: y, width: rect.width, height: Draw.lineHeight(lineFont)),
-                      font: lineFont, color: Theme.textSecondary, alignment: .right)
-            y += Draw.lineHeight(lineFont) + m(1)
-        }
-        if let today = data.downloadedToday {
-            Draw.text("\(today) today", in: CGRect(x: rect.minX, y: y, width: rect.width, height: Draw.lineHeight(lineFont)),
-                      font: lineFont, color: Theme.textTertiary, alignment: .right)
-        }
-    }
-
-    private func drawTwoLines(_ title: String, _ detail: String?, in rect: CGRect, m: Metrics) {
-        let titleFont = Theme.font(m(19), .semibold)
-        let detailFont = Theme.font(m(15), .regular)
-        let titleHeight = Draw.lineHeight(titleFont)
-        let total = titleHeight + (detail == nil ? 0 : Draw.lineHeight(detailFont) + m(4))
-        var y = rect.midY - total / 2
-        Draw.text(title, in: CGRect(x: rect.minX, y: y, width: rect.width, height: titleHeight),
-                  font: titleFont, color: Theme.textSecondary)
-        y += titleHeight + m(4)
-        if let detail {
-            Draw.text(detail, in: CGRect(x: rect.minX, y: y, width: rect.width, height: Draw.lineHeight(detailFont)),
-                      font: detailFont, color: Theme.textTertiary)
-        }
+        // Speed graph fills the space between the speed and the current job.
+        let graphTop = speedY + speedHeight + m(2)
+        let graphRect = CGRect(x: inner.minX, y: graphTop, width: inner.width, height: nameY - m(10) - graphTop)
+        if graphRect.height > m(16) { drawGraph(in: graphRect, m: m) }
     }
 
     // MARK: Left half: speed

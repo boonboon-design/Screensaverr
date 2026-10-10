@@ -9,6 +9,8 @@ final class DashboardView: NSView {
     private let movieColumn = ColumnView(kind: .radarr)
     private let requestColumn = ColumnView(kind: .seerr)
     private let downloads = DownloadsView(frame: .zero)
+    private let nowPlaying = NowPlayingView(frame: .zero)
+    private let recentlyAdded = RecentlyAddedView(frame: .zero)
     private let welcome = WelcomeView(frame: .zero)
 
     private let store: DashboardStore
@@ -31,7 +33,7 @@ final class DashboardView: NSView {
         addSubview(backdrop)
         content.wantsLayer = true
         addSubview(content)
-        for view in [header, tvColumn, movieColumn, requestColumn, downloads, welcome] as [NSView] {
+        for view in [header, tvColumn, movieColumn, requestColumn, downloads, nowPlaying, recentlyAdded, welcome] as [NSView] {
             content.addSubview(view)
         }
 
@@ -77,6 +79,7 @@ final class DashboardView: NSView {
         for (index, column) in columns.enumerated() where (ticks + index * 5) % 15 == 0 {
             column.advancePage()
         }
+        if ticks % 20 == 10 { recentlyAdded.advancePage() }
         if ticks % 45 == 0 { rotateBackdrop() }
         if ticks % 60 == 0 {
             drift()
@@ -109,19 +112,46 @@ final class DashboardView: NSView {
 
         let columns = visibleColumns
         let showDownloads = store.downloads.isConfigured
+        let showNowPlaying = store.nowPlaying.isConfigured
+        let showRecent = store.requests.isConfigured
         var top = header.frame.maxY + m(20)
         var bottom = bounds.height - m(56)
 
+        // When SABnzbd is the only service, give it a big panel instead of the corner box.
+        let downloadsOnly = showDownloads && columns.isEmpty && !showNowPlaying
         downloads.isHidden = !showDownloads
-        if showDownloads {
-            // A slim bar under the columns; a full panel only when it's the only thing on screen.
-            let compact = !columns.isEmpty
-            let height = compact ? m(104) : min(bottom - top, m(420))
-            if !compact { top += max(0, (bottom - top - height) / 2) }
-            downloads.compact = compact
+        nowPlaying.isHidden = !showNowPlaying
+        recentlyAdded.isHidden = !showRecent || downloadsOnly
+
+        if downloadsOnly {
+            let height = min(bottom - top, m(420))
+            top += max(0, (bottom - top - height) / 2)
+            downloads.style = .panel
             downloads.frame = CGRect(x: margin, y: bottom - height, width: width, height: height)
             downloads.metrics = m
-            bottom = downloads.frame.minY - m(30)
+        } else if showDownloads || showNowPlaying || showRecent {
+            // Bottom row: downloads box (left) · recently added (middle) · now playing box (right)
+            let rowHeight = m(236)
+            let rowY = bottom - rowHeight
+            let rowGap = m(40)
+            var shelfLeft = margin
+            var shelfRight = margin + width
+            if showDownloads {
+                downloads.style = .box
+                downloads.frame = CGRect(x: margin, y: rowY, width: m(430), height: rowHeight)
+                downloads.metrics = m
+                shelfLeft = downloads.frame.maxX + rowGap
+            }
+            if showNowPlaying {
+                nowPlaying.frame = CGRect(x: margin + width - m(470), y: rowY, width: m(470), height: rowHeight)
+                nowPlaying.metrics = m
+                shelfRight = nowPlaying.frame.minX - rowGap
+            }
+            if showRecent {
+                recentlyAdded.frame = CGRect(x: shelfLeft, y: rowY, width: max(0, shelfRight - shelfLeft), height: rowHeight)
+                recentlyAdded.metrics = m
+            }
+            bottom = rowY - m(34)
         }
 
         for column in [tvColumn, movieColumn, requestColumn] {
@@ -161,7 +191,8 @@ final class DashboardView: NSView {
         let settings = store.settings
 
         let signature = [store.tv.isConfigured, store.movies.isConfigured, store.requests.isConfigured,
-                         store.downloads.isConfigured, settings.hasAnyConfiguredService].map { $0 ? "1" : "0" }.joined()
+                         store.downloads.isConfigured, store.nowPlaying.isConfigured,
+                         settings.hasAnyConfiguredService].map { $0 ? "1" : "0" }.joined()
         if signature != lastLayoutSignature {
             lastLayoutSignature = signature
             needsLayout = true
@@ -172,6 +203,7 @@ final class DashboardView: NSView {
             (.radarr, store.movies.health),
             (.seerr, store.requests.health),
             (.sabnzbd, store.downloads.health),
+            (.tautulli, store.nowPlaying.health),
         ]
 
         // TV
@@ -198,9 +230,23 @@ final class DashboardView: NSView {
         }
         requestColumn.rows = (store.requests.value?.items ?? []).map { requestRow($0, now: now) }
 
-        // Downloads
+        // Recently added (from Seerr)
+        let recent = store.requests.value?.recentlyAdded ?? []
+        recentlyAdded.items = recent
+        if store.requests.value == nil {
+            if let error = store.requests.error {
+                recentlyAdded.message = ("Can't reach Seerr", error)
+            } else {
+                recentlyAdded.message = ("Loading…", nil)
+            }
+        } else {
+            recentlyAdded.message = recent.isEmpty ? ("Nothing added recently", nil) : nil
+        }
+
+        // Downloads and streams
         downloads.speedHistory = store.speedHistory
         downloads.state = store.downloads
+        nowPlaying.state = store.nowPlaying
 
         if backdropIndex < 0 { rotateBackdrop() }
     }
@@ -310,11 +356,12 @@ final class DashboardView: NSView {
         let tv = (store.tv.isConfigured ? store.tv.value ?? [] : []).prefix(12).compactMap(\.fanart)
         let movies = (store.movies.isConfigured ? store.movies.value ?? [] : []).prefix(12).compactMap(\.fanart)
         let requests = (store.requests.isConfigured ? store.requests.value?.items ?? [] : []).prefix(12).compactMap(\.backdrop)
+        let recent = (store.requests.isConfigured ? store.requests.value?.recentlyAdded ?? [] : []).prefix(12).compactMap(\.backdrop)
         // Interleave so consecutive backdrops come from different sources.
         var result: [ImageRef] = []
         var seen = Set<String>()
-        for index in 0..<max(tv.count, movies.count, requests.count) {
-            for list in [tv, movies, requests] where index < list.count {
+        for index in 0..<max(tv.count, movies.count, requests.count, recent.count) {
+            for list in [tv, movies, requests, recent] where index < list.count {
                 let ref = list[index]
                 if let key = ref.cacheKey, seen.insert(key).inserted { result.append(ref) }
             }
@@ -373,7 +420,7 @@ final class WelcomeView: NSView {
         y += Draw.lineHeight(titleFont) + m(18)
 
         let body = "Open System Settings › Screen Saver, choose Screensaverr and click Options… "
-            + "to add your Sonarr, Radarr, Seerr and SABnzbd servers."
+            + "to add your Sonarr, Radarr, Seerr, SABnzbd and Tautulli servers."
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineSpacing = m(6)

@@ -147,6 +147,86 @@ final class TransformerTests: XCTestCase {
         XCTAssertEqual(Transformers.seasonsLabel([1, 3, 5, 7, 9]), "5 seasons")
     }
 
+    func testSeerrRecentlyAdded() throws {
+        let page = try JSONSupport.decode(SeerrMediaPage.self, from: response("seerr_media"), serviceName: "Seerr")
+        let media = try XCTUnwrap(page.results?.elements)
+        XCTAssertEqual(media.count, 3)
+
+        let movieDetails = try JSONDecoder().decode(SeerrMediaDetails.self, from: fixture("seerr_movie"))
+        let movie = try XCTUnwrap(Transformers.recentItem(media[0], details: movieDetails))
+        XCTAssertEqual(movie.title, "Paper Moons")
+        XCTAssertEqual(movie.year, 2026)
+        XCTAssertEqual(movie.mediaKind, .movie)
+        XCTAssertEqual(movie.addedAt, JSONSupport.parseDate("2026-10-10T10:00:00Z"))
+        XCTAssertEqual(movie.poster?.remoteURL?.absoluteString, "https://image.tmdb.org/t/p/w342/poster100.jpg")
+
+        let show = try XCTUnwrap(Transformers.recentItem(media[1], details: nil))
+        XCTAssertEqual(show.mediaKind, .tv)
+        XCTAssertEqual(show.title, "TMDB #200")
+        XCTAssertNil(show.poster)
+
+        XCTAssertNil(Transformers.recentItem(media[2], details: nil), "items without a TMDB id are skipped")
+    }
+
+    func testRequestsDataDecodesWithoutRecentlyAdded() throws {
+        // Snapshots cached by version 1.1 don't have the recentlyAdded key.
+        let json = #"{"items": [], "counts": {"total": 1, "pending": 0, "processing": 1, "available": 0}}"#
+        let data = try JSONDecoder().decode(RequestsData.self, from: Data(json.utf8))
+        XCTAssertTrue(data.recentlyAdded.isEmpty)
+        XCTAssertEqual(data.counts?.processing, 1)
+    }
+
+    // MARK: Tautulli
+
+    func testTautulliNowPlaying() throws {
+        let envelope = try JSONSupport.decode(TautulliEnvelope<TautulliActivity>.self, from: response("tautulli_activity"),
+                                              serviceName: "Tautulli")
+        XCTAssertEqual(envelope.response?.result, "success")
+        let activity = try XCTUnwrap(envelope.response?.data)
+        let data = Transformers.nowPlaying(activity, baseURL: URL(string: "http://nas:8181/tautulli")!, apiKey: "k")
+
+        XCTAssertEqual(data.streamCount, 3)
+        XCTAssertEqual(data.transcodeCount, 1)
+        XCTAssertEqual(data.sessions.count, 3, "the malformed session is skipped")
+
+        let episode = data.sessions[0]
+        XCTAssertEqual(episode.title, "Game of Thrones")
+        XCTAssertEqual(episode.subtitle, "S06E01 · The Red Woman")
+        XCTAssertEqual(episode.user, "Jon Snow")
+        XCTAssertEqual(episode.decision, "Direct Play")
+        XCTAssertEqual(episode.quality, "1080p")
+        XCTAssertEqual(episode.progress, 0.45, accuracy: 0.0001)
+        XCTAssertFalse(episode.isPaused)
+        let poster = try XCTUnwrap(episode.poster?.localURL)
+        let components = try XCTUnwrap(URLComponents(url: poster, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(components.path, "/tautulli/api/v2")
+        XCTAssertEqual(components.queryItems?.first { $0.name == "cmd" }?.value, "pms_image_proxy")
+        XCTAssertEqual(components.queryItems?.first { $0.name == "img" }?.value, "/library/metadata/1219/thumb/1503306930",
+                       "episodes use the show's poster")
+        XCTAssertEqual(components.queryItems?.first { $0.name == "apikey" }?.value, "k")
+
+        let movie = data.sessions[1]
+        XCTAssertEqual(movie.title, "Paper Moons")
+        XCTAssertEqual(movie.subtitle, "2026")
+        XCTAssertEqual(movie.user, "bob", "empty friendly names fall back to the username")
+        XCTAssertTrue(movie.isPaused)
+        XCTAssertTrue(movie.isTranscoding)
+        XCTAssertNil(movie.quality)
+        XCTAssertEqual(movie.player, "Plex for iOS")
+
+        let track = data.sessions[2]
+        XCTAssertEqual(track.title, "The Lanterns")
+        XCTAssertEqual(track.subtitle, "Blue Light · Night Drive")
+        XCTAssertEqual(track.decision, "Direct Stream")
+    }
+
+    func testTautulliErrorEnvelope() throws {
+        let body = Data(#"{"response": {"result": "error", "message": "Invalid apikey", "data": {}}}"#.utf8)
+        let envelope = try JSONDecoder().decode(TautulliEnvelope<TautulliInfo>.self, from: body)
+        XCTAssertEqual(envelope.response?.result, "error")
+        XCTAssertEqual(envelope.response?.message, "Invalid apikey")
+    }
+
     // MARK: SABnzbd
 
     func testSABQueueAndHistory() throws {

@@ -16,6 +16,7 @@ final class DashboardStore {
     private(set) var movies = PanelState<[MovieItem]>()
     private(set) var requests = PanelState<RequestsData>()
     private(set) var downloads = PanelState<DownloadsData>()
+    private(set) var nowPlaying = PanelState<NowPlayingData>()
     private(set) var speedHistory: [SpeedSample] = []
 
     static let speedHistoryWindow: TimeInterval = 5 * 60
@@ -103,6 +104,7 @@ final class DashboardStore {
         movies.isConfigured = newSettings.radarr.isConfigured
         requests.isConfigured = newSettings.seerr.isConfigured
         downloads.isConfigured = newSettings.sabnzbd.isConfigured
+        nowPlaying.isConfigured = newSettings.tautulli.isConfigured
 
         if activeClients > 0 && !force {
             stopPolling()
@@ -123,17 +125,21 @@ final class DashboardStore {
             speedHistory = []
             sabHistory = nil
             lastHistoryFetch = nil
+        case .tautulli:
+            nowPlaying = PanelState()
         }
     }
 
     // MARK: Polling
 
+    /// Calendars and requests change slowly: refresh them when the screen saver starts and
+    /// every 10 minutes after that (retrying after a minute if a server is unreachable).
+    /// Downloads and streams are live, so they're polled every few seconds.
     private static func interval(_ kind: ServiceKind, succeeded: Bool) -> TimeInterval {
         switch kind {
-        case .sonarr: return succeeded ? 5 * 60 : 30
-        case .radarr: return succeeded ? 10 * 60 : 30
-        case .seerr: return succeeded ? 2 * 60 : 30
+        case .sonarr, .radarr, .seerr: return succeeded ? 10 * 60 : 60
         case .sabnzbd: return succeeded ? 3 : 10
+        case .tautulli: return succeeded ? 10 : 20
         }
     }
 
@@ -179,6 +185,10 @@ final class DashboardStore {
         case .sabnzbd:
             return await load(kind, config: config, cacheable: false, read: { self.downloads }, write: { self.downloads = $0 }) {
                 try await self.fetchDownloads(config: config)
+            }
+        case .tautulli:
+            return await load(kind, config: config, cacheable: false, read: { self.nowPlaying }, write: { self.nowPlaying = $0 }) {
+                try await TautulliClient(config: config, http: self.http).activity()
             }
         }
     }
@@ -229,6 +239,7 @@ final class DashboardStore {
         let client = SeerrClient(config: config, http: http)
         let raw = try await client.recentRequests(count: count)
         let counts = try? await client.counts()
+        let recent = (try? await client.recentlyAdded(count: 20)) ?? []
 
         struct Missing {
             var key: String
@@ -236,13 +247,18 @@ final class DashboardStore {
             var tmdbId: Int
         }
         var missing: [Missing] = []
-        for request in raw {
-            guard let tmdbId = request.media?.tmdbId else { continue }
-            let kind: MediaKind = (request.type ?? request.media?.mediaType) == "tv" ? .tv : .movie
+        func need(_ kind: MediaKind, _ tmdbId: Int?) {
+            guard let tmdbId else { return }
             let key = Self.detailsKey(kind, tmdbId)
             if seerrDetails[key] == nil && !missing.contains(where: { $0.key == key }) {
                 missing.append(Missing(key: key, kind: kind, tmdbId: tmdbId))
             }
+        }
+        for request in raw {
+            need((request.type ?? request.media?.mediaType) == "tv" ? .tv : .movie, request.media?.tmdbId)
+        }
+        for media in recent {
+            need(media.mediaType == "tv" ? .tv : .movie, media.tmdbId)
         }
         if !missing.isEmpty {
             let fetched: [(String, SeerrMediaDetails)] = await withTaskGroup(of: (String, SeerrMediaDetails?).self) { group in
@@ -273,7 +289,12 @@ final class DashboardStore {
                 available: $0.available ?? 0
             )
         }
-        return RequestsData(items: items, counts: summary)
+        let recentlyAdded = recent.compactMap { media -> RecentItem? in
+            let kind: MediaKind = media.mediaType == "tv" ? .tv : .movie
+            let details = media.tmdbId.flatMap { seerrDetails[Self.detailsKey(kind, $0)] }
+            return Transformers.recentItem(media, details: details)
+        }
+        return RequestsData(items: items, counts: summary, recentlyAdded: recentlyAdded)
     }
 
     private static func detailsKey(_ kind: MediaKind, _ tmdbId: Int) -> String { "\(kind.rawValue)-\(tmdbId)" }

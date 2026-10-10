@@ -111,6 +111,57 @@ struct RequestCounts: Codable, Hashable {
 struct RequestsData: Codable, Hashable {
     var items: [RequestItem]
     var counts: RequestCounts?
+    /// Seerr's "Recently Added" (newest first).
+    var recentlyAdded: [RecentItem] = []
+
+    init(items: [RequestItem], counts: RequestCounts?, recentlyAdded: [RecentItem] = []) {
+        self.items = items
+        self.counts = counts
+        self.recentlyAdded = recentlyAdded
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        items = try c.decode([RequestItem].self, forKey: .items)
+        counts = try c.decodeIfPresent(RequestCounts.self, forKey: .counts)
+        recentlyAdded = try c.decodeIfPresent([RecentItem].self, forKey: .recentlyAdded) ?? []
+    }
+}
+
+struct RecentItem: Codable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var year: Int?
+    var mediaKind: MediaKind
+    var addedAt: Date?
+    var poster: ImageRef?
+    var backdrop: ImageRef?
+}
+
+struct StreamItem: Codable, Hashable, Identifiable {
+    var id: String
+    /// Show, movie or artist name.
+    var title: String
+    /// "S06E01 · The Red Woman", a movie's year, or a track name.
+    var subtitle: String?
+    var user: String
+    var state: String
+    /// 0…1
+    var progress: Double
+    /// "Direct Play", "Direct Stream" or "Transcode".
+    var decision: String?
+    var quality: String?
+    var player: String?
+    var poster: ImageRef?
+
+    var isTranscoding: Bool { decision == "Transcode" }
+    var isPaused: Bool { state.lowercased() == "paused" }
+}
+
+struct NowPlayingData: Codable, Hashable {
+    var streamCount: Int
+    var transcodeCount: Int
+    var sessions: [StreamItem]
 }
 
 enum QueueState: String, Codable, Hashable {

@@ -9,6 +9,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(normalized("HTTPS://media.example.com/sonarr/"), "https://media.example.com/sonarr")
         XCTAssertEqual(normalized("http://10.0.0.2:7878/radarr/api/v3"), "http://10.0.0.2:7878/radarr")
         XCTAssertEqual(normalized("http://10.0.0.2:5055/api/v1/"), "http://10.0.0.2:5055")
+        XCTAssertEqual(normalized("http://10.0.0.2:8181/api/v2"), "http://10.0.0.2:8181")
         XCTAssertEqual(normalized("http://10.0.0.2:8080/sabnzbd/api?mode=queue"), "http://10.0.0.2:8080/sabnzbd")
         XCTAssertNil(normalized(""))
         XCTAssertNil(normalized("ftp://server"))
@@ -46,6 +47,7 @@ final class SettingsTests: XCTestCase {
     func testSettingsRoundTrip() throws {
         var settings = AppSettings()
         settings[.sabnzbd] = ServiceConfig(url: "http://sab:8080", apiKey: "abc")
+        settings[.tautulli] = ServiceConfig(url: "http://plex:8181", apiKey: "def")
         settings.allowInvalidCertificates = true
         let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings))
         XCTAssertEqual(decoded, settings)

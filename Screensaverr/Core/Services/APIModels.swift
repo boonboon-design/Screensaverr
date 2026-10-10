@@ -212,3 +212,101 @@ struct SABHistorySlot: Decodable {
         case failMessage = "fail_message"
     }
 }
+
+// MARK: - Seerr media list (Recently Added)
+
+struct SeerrMediaPage: Decodable {
+    var results: LossyArray<SeerrMediaItem>?
+}
+
+struct SeerrMediaItem: Decodable {
+    var id: Int?
+    var tmdbId: Int?
+    var mediaType: String?
+    var status: Int?
+    var mediaAddedAt: String?
+}
+
+// MARK: - Tautulli (API v2)
+
+struct TautulliEnvelope<Payload: Decodable>: Decodable {
+    struct Response: Decodable {
+        var result: String?
+        var message: String?
+        var data: Payload?
+    }
+
+    var response: Response?
+}
+
+struct TautulliInfo: Decodable {
+    var tautulliVersion: String?
+
+    enum CodingKeys: String, CodingKey {
+        case tautulliVersion = "tautulli_version"
+    }
+}
+
+struct TautulliActivity: Decodable {
+    var streamCount: FlexibleDouble?
+    var streamCountDirectPlay: FlexibleDouble?
+    var streamCountDirectStream: FlexibleDouble?
+    var streamCountTranscode: FlexibleDouble?
+    var totalBandwidth: FlexibleDouble?
+    var sessions: LossyArray<TautulliSession>?
+
+    enum CodingKeys: String, CodingKey {
+        case streamCount = "stream_count"
+        case streamCountDirectPlay = "stream_count_direct_play"
+        case streamCountDirectStream = "stream_count_direct_stream"
+        case streamCountTranscode = "stream_count_transcode"
+        case totalBandwidth = "total_bandwidth"
+        case sessions
+    }
+}
+
+struct TautulliSession: Decodable {
+    var sessionKey: String?
+    var sessionId: String?
+    var friendlyName: String?
+    var user: String?
+    var username: String?
+    var mediaType: String?
+    var title: String?
+    var fullTitle: String?
+    var grandparentTitle: String?
+    var parentTitle: String?
+    var parentMediaIndex: FlexibleDouble?
+    var mediaIndex: FlexibleDouble?
+    var year: FlexibleDouble?
+    var state: String?
+    var progressPercent: FlexibleDouble?
+    var transcodeDecision: String?
+    var player: String?
+    var product: String?
+    var streamVideoFullResolution: String?
+    var thumb: String?
+    var parentThumb: String?
+    var grandparentThumb: String?
+    var live: FlexibleBool?
+    var channelTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case sessionKey = "session_key"
+        case sessionId = "session_id"
+        case friendlyName = "friendly_name"
+        case user, username, title, year, state, player, product, thumb, live
+        case mediaType = "media_type"
+        case fullTitle = "full_title"
+        case grandparentTitle = "grandparent_title"
+        case parentTitle = "parent_title"
+        case parentMediaIndex = "parent_media_index"
+        case mediaIndex = "media_index"
+        case progressPercent = "progress_percent"
+        case transcodeDecision = "transcode_decision"
+        case streamVideoFullResolution = "stream_video_full_resolution"
+        case parentThumb = "parent_thumb"
+        case grandparentThumb = "grandparent_thumb"
+        case channelTitle = "channel_title"
+    }
+}

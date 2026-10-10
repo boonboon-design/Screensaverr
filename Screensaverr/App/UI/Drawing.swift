@@ -138,6 +138,43 @@ enum Draw {
         roundedRect(filled, radius: rect.height / 2, fill: color)
     }
 
+    /// The translucent rounded box used by the bottom-row sections.
+    static func panel(_ rect: CGRect, m: Metrics) {
+        let radius = m(22)
+        roundedRect(rect, radius: radius, fill: Theme.panelFill)
+        Theme.hairline.setStroke()
+        let border = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
+        border.lineWidth = 1
+        border.stroke()
+    }
+
+    /// Small all-caps heading with a coloured dot. Returns the y just below it.
+    @discardableResult
+    static func sectionLabel(_ title: String, accent: NSColor, at origin: CGPoint, width: CGFloat, m: Metrics) -> CGFloat {
+        let font = Theme.font(m(14), .semibold)
+        let height = lineHeight(font)
+        let radius = m(4.5)
+        dot(at: CGPoint(x: origin.x + radius, y: origin.y + height / 2 + m(1)), radius: radius, color: accent)
+        let x = origin.x + radius * 2 + m(10)
+        text(title, in: CGRect(x: x, y: origin.y, width: max(0, width - (x - origin.x)), height: height),
+             font: font, color: Theme.textSecondary, kern: m(1.8))
+        return origin.y + height
+    }
+
+    /// A short status message ("Nothing playing", "Can't reach …") with optional detail text.
+    static func message(_ title: String, detail: String?, in rect: CGRect, m: Metrics) {
+        let titleFont = Theme.font(m(17), .semibold)
+        let detailFont = Theme.font(m(14), .regular)
+        let titleHeight = lineHeight(titleFont)
+        text(title, in: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: titleHeight),
+             font: titleFont, color: Theme.textSecondary)
+        guard let detail, rect.height > titleHeight else { return }
+        NSAttributedString(string: detail, attributes: [.font: detailFont, .foregroundColor: Theme.textTertiary])
+            .draw(with: CGRect(x: rect.minX, y: rect.minY + titleHeight + m(4), width: rect.width,
+                               height: rect.height - titleHeight - m(4)),
+                  options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+    }
+
     static func dot(at center: CGPoint, radius: CGFloat, color: NSColor) {
         color.setFill()
         NSBezierPath(ovalIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)).fill()

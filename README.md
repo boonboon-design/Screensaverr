@@ -5,7 +5,9 @@ A native macOS screen saver for your media server. While your Mac is idle it sho
 - **Upcoming TV** from **Sonarr**: what airs today, tomorrow and this week, with posters. Season drops are grouped ("S01E01–E08"), and premieres, finales and already-downloaded episodes are tagged.
 - **Upcoming movies** from **Radarr**: each movie's next release (in cinemas, digital or physical).
 - **Requests** from **Seerr** (Overseerr and Jellyseerr work too): who asked for what, and whether it's pending, processing or available.
-- **Downloads** from **SABnzbd**, in a slim bar along the bottom: the current speed with a live graph, the active download's progress, and the queue size and time remaining. If SABnzbd is the only service set up, it becomes a full panel instead.
+- **Recently Added** from **Seerr**: a row of posters for what was most recently added to your library.
+- **Downloads** from **SABnzbd**, in a small box in the bottom-left corner: the current speed with a live graph, the active download's progress, and the queue size and time remaining. If SABnzbd is the only service set up, it becomes a full panel instead.
+- **Now Playing** from **Tautulli**, in a small box in the bottom-right corner: how many streams are playing, what each one is, who's watching, and whether it's direct play or transcoding.
 
 It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
 
@@ -40,7 +42,7 @@ You can also open `Screensaverr.xcodeproj` and build the **Screensaverr** target
 
 1. Open **System Settings › Screen Saver** (on older macOS, **Wallpaper › Screen Saver…**) and select **Screensaverr**.
 2. Click **Options…**.
-3. For each service, enter the **URL** and **API key**, then click **Test Connection**.
+3. For each service you use, enter the **URL** and **API key**, then click **Test Connection**. Leave any you don't use empty.
 4. Click **Save**.
 
 | Service | Example URL | API key location |
@@ -49,8 +51,9 @@ You can also open `Screensaverr.xcodeproj` and build the **Screensaverr** target
 | Radarr | `http://192.168.1.10:7878` | Settings › General › Security |
 | Seerr | `http://192.168.1.10:5055` | Settings › General |
 | SABnzbd | `http://192.168.1.10:8080` | Config › General › Security |
+| Tautulli | `http://192.168.1.10:8181` | Settings › Web Interface › API (turn on **Enable API**) |
 
-- **URL base:** if a service runs under a path (`http://nas/sonarr`), include it in the URL. You can paste a URL that ends in `/api/v3` or `/api`; the suffix is stripped.
+- **URL base:** if a service runs under a path (`http://nas/sonarr`), include it in the URL. You can paste a URL that ends in `/api/v3`, `/api/v2` or `/api`; the suffix is stripped.
 - **HTTP vs HTTPS:** both work. If you use HTTPS with a self-signed certificate, turn on **Allow self-signed HTTPS certificates**.
 - **Pasting:** ⌘V works in the Options sheet, so you can paste API keys.
 - **Hiding a service:** switch off **Show …** for any service you don't want on screen. The layout adapts to the services that are set up.
@@ -60,10 +63,9 @@ You can also open `Screensaverr.xcodeproj` and build the **Screensaverr** target
 
 | Service | Every | After an error, retries in |
 | --- | --- | --- |
+| Sonarr, Radarr, Seerr | 10 min, and as soon as the screen saver starts | 1 min |
 | SABnzbd | 3 s | 10 s |
-| Seerr | 2 min | 30 s |
-| Sonarr | 5 min | 30 s |
-| Radarr | 10 min | 30 s |
+| Tautulli | 10 s | 20 s |
 
 The last data and artwork are cached on disk, so the screen fills in immediately when the screen saver starts. When a server can't be reached, its last data stays on screen with an "Offline · updated …" note, and a red status light appears in the top-right corner.
 
