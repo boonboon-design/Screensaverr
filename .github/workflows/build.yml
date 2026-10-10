@@ -146,7 +146,7 @@ jobs:
                ```
             3. Double-click **Screensaverr.saver** and install it for this user.
             4. Open **System Settings › Screen Saver**, choose **Screensaverr**, click **Options…**, and add
-               the URL and API key for Sonarr, Radarr, Seerr and SABnzbd. Use **Test Connection** to check each one.
+               the URL and API key for Sonarr, Radarr, Seerr, SABnzbd and Tautulli. Use **Test Connection** to check each one.
 
             Updating from an earlier version? Run `killall legacyScreenSaver` afterwards so macOS loads the new one.
 
