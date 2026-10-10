@@ -24,7 +24,8 @@ final class PlainHTTPTransport: HTTPTransport, @unchecked Sendable {
             port: port,
             payload: payload,
             timeout: request.timeout,
-            isHeadRequest: request.method.uppercased() == "HEAD"
+            isHeadRequest: request.method.uppercased() == "HEAD",
+            label: "\(host):\(portNumber)\(request.url.path)"
         )
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -81,12 +82,24 @@ private final class PlainHTTPExchange: @unchecked Sendable {
     private let timeout: TimeInterval
     private let isHeadRequest: Bool
 
+    private let label: String
+    private let id: Int
+    private let createdAt = Date()
+
     private var buffer = Data()
     private var head: HTTPResponseHead?
     private var continuation: CheckedContinuation<HTTPResponse, Error>?
     private var finished = false
 
-    init(host: NWEndpoint.Host, port: NWEndpoint.Port, payload: Data, timeout: TimeInterval, isHeadRequest: Bool) {
+    private static let counterLock = NSLock()
+    private static var counter = 0
+
+    init(host: NWEndpoint.Host, port: NWEndpoint.Port, payload: Data, timeout: TimeInterval, isHeadRequest: Bool, label: String) {
+        Self.counterLock.lock()
+        Self.counter += 1
+        id = Self.counter
+        Self.counterLock.unlock()
+        self.label = label
         let tcp = NWProtocolTCP.Options()
         tcp.connectionTimeout = Int(max(1, min(timeout, 30)))
         let parameters = NWParameters(tls: nil, tcp: tcp)
@@ -96,7 +109,10 @@ private final class PlainHTTPExchange: @unchecked Sendable {
         self.isHeadRequest = isHeadRequest
     }
 
+    private var elapsed: String { String(format: "%.3fs", Date().timeIntervalSince(createdAt)) }
+
     func start(_ continuation: CheckedContinuation<HTTPResponse, Error>) {
+        Log.network.debug("#\(self.id, privacy: .public) start \(self.label, privacy: .public)")
         queue.async {
             if self.finished {
                 continuation.resume(throwing: HTTPError.cancelled)
@@ -118,6 +134,7 @@ private final class PlainHTTPExchange: @unchecked Sendable {
     }
 
     private func handle(_ state: NWConnection.State) {
+        Log.network.debug("#\(self.id, privacy: .public) state \(String(describing: state), privacy: .public) after \(self.elapsed, privacy: .public)")
         switch state {
         case .ready:
             connection.send(content: payload, completion: .contentProcessed { [self] error in
@@ -139,6 +156,7 @@ private final class PlainHTTPExchange: @unchecked Sendable {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [self] data, _, isComplete, error in
             if self.finished { return }
             if let data, !data.isEmpty { self.buffer.append(data) }
+            Log.network.debug("#\(self.id, privacy: .public) received \(data?.count ?? 0, privacy: .public) bytes (total \(self.buffer.count, privacy: .public)) complete=\(isComplete, privacy: .public) error=\(String(describing: error), privacy: .public) after \(self.elapsed, privacy: .public)")
             do {
                 if self.head == nil {
                     self.head = try HTTPResponseParser.parseHead(self.buffer)
@@ -166,6 +184,12 @@ private final class PlainHTTPExchange: @unchecked Sendable {
     private func finish(_ result: Result<HTTPResponse, Error>) {
         guard !finished else { return }
         finished = true
+        switch result {
+        case .success(let response):
+            Log.network.debug("#\(self.id, privacy: .public) done HTTP \(response.statusCode, privacy: .public), \(response.body.count, privacy: .public) bytes after \(self.elapsed, privacy: .public)")
+        case .failure(let error):
+            Log.network.error("#\(self.id, privacy: .public) \(self.label, privacy: .public) failed after \(self.elapsed, privacy: .public): \(String(describing: error), privacy: .public); \(self.buffer.count, privacy: .public) bytes buffered")
+        }
         connection.stateUpdateHandler = nil
         connection.cancel()
         continuation?.resume(with: result)

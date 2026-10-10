@@ -3,7 +3,7 @@ import AppKit
 /// The whole screen: backdrop, header, up to three columns and the downloads panel.
 final class DashboardView: NSView {
     private let backdrop = BackdropView(frame: .zero)
-    private let content = NSView(frame: .zero)
+    private let content = FlippedView(frame: .zero)
     private let header = HeaderView(frame: .zero)
     private let tvColumn = ColumnView(kind: .sonarr)
     private let movieColumn = ColumnView(kind: .radarr)
@@ -333,6 +333,11 @@ final class DashboardView: NSView {
             self.backdrop.show(image, key: ref.cacheKey)
         }
     }
+}
+
+/// A plain container with a top-left origin, matching the layout math above.
+final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
 }
 
 /// Shown until at least one service is set up.

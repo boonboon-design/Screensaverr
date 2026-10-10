@@ -55,15 +55,20 @@ jobs:
       - name: Render screenshots against mock servers
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
+          log stream --level debug --style compact \
+            --predicate 'subsystem == "com.boonboondesign.Screensaverr"' > oslog.txt 2>&1 &
           python3 ci/mock_server.py 18989 > mock.log 2>&1 &
           sleep 1
           swiftc -O ci/render.swift -o build/render
           build/render build/Release/Screensaverr.saver screenshots 18989 40
         timeout-minutes: 5
 
-      - name: Mock server log
+      - name: Mock server and screen saver logs
         if: always()
-        run: cat mock.log || true
+        run: |
+          pkill -f "log stream" || true
+          echo "--- mock server ---"; cat mock.log || true
+          echo "--- unified log ---"; cat oslog.txt || true
 
       - name: Package
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

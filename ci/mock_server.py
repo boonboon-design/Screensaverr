@@ -10,12 +10,14 @@ import json
 import random
 import struct
 import sys
+import time
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 18989
 KEY = "testkey"
+START = time.monotonic()
 BASE = f"http://127.0.0.1:{PORT}"
 NOW = dt.datetime.now(dt.timezone.utc)
 
@@ -214,7 +216,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
-        sys.stdout.write("mock: " + (fmt % args) + "\n")
+        sys.stdout.write("mock %7.3f: %s\n" % (time.monotonic() - START, fmt % args))
         sys.stdout.flush()
 
     def send_json(self, obj, status=200, chunked=False):

@@ -194,8 +194,11 @@ final class DashboardStore {
         var state = read()
         state.isLoading = true
         write(state)
+        let started = Date()
+        Log.general.debug("\(kind.displayName, privacy: .public) refresh started")
         do {
             let value = try await fetch()
+            Log.general.debug("\(kind.displayName, privacy: .public) refresh finished in \(Date().timeIntervalSince(started), privacy: .public)s")
             // Settings may have changed while we were waiting.
             guard !Task.isCancelled, settings[kind] == config else { return false }
             state = read()
