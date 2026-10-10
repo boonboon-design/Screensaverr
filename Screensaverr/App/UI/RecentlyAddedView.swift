@@ -46,10 +46,12 @@ final class RecentlyAddedView: NSView {
 
     private var headerHeight: CGFloat { metrics(36) }
     private var captionHeight: CGFloat { metrics(42) }
+    /// Room under the captions for the page dots.
+    private var dotsHeight: CGFloat { metrics(16) }
     private var spacing: CGFloat { metrics(18) }
 
     private var posterSize: CGSize {
-        let height = max(1, bounds.height - headerHeight - captionHeight)
+        let height = max(1, bounds.height - headerHeight - captionHeight - dotsHeight)
         return CGSize(width: (height * 2 / 3).rounded(), height: height)
     }
 
@@ -76,21 +78,37 @@ final class RecentlyAddedView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let m = metrics
         let accent = Theme.accent(.seerr)
-        Draw.sectionLabel("RECENTLY ADDED", accent: accent, at: CGPoint(x: 0, y: m(2)), width: bounds.width * 0.7, m: m)
-        if pageCount > 1 { drawPageDots(m: m, accent: accent) }
+
+        // Everything in this section is centred: heading, posters and page dots.
+        let title = "RECENTLY ADDED"
+        let labelWidth = m(4.5) * 2 + m(10) + Draw.width(title, font: Theme.font(m(14), .semibold), kern: m(1.8))
+        Draw.sectionLabel(title, accent: accent, at: CGPoint(x: ((bounds.width - labelWidth) / 2).rounded(), y: m(2)),
+                          width: labelWidth + m(4), m: m)
 
         if let message {
-            Draw.message(message.title, detail: message.detail,
-                         in: CGRect(x: 0, y: headerHeight + m(10), width: bounds.width, height: bounds.height - headerHeight - m(10)), m: m)
+            let titleFont = Theme.font(m(17), .semibold)
+            let detailFont = Theme.font(m(14), .regular)
+            var y = headerHeight + m(30)
+            Draw.text(message.title, in: CGRect(x: 0, y: y, width: bounds.width, height: Draw.lineHeight(titleFont)),
+                      font: titleFont, color: Theme.textSecondary, alignment: .center)
+            y += Draw.lineHeight(titleFont) + m(4)
+            if let detail = message.detail {
+                Draw.text(detail, in: CGRect(x: 0, y: y, width: bounds.width, height: Draw.lineHeight(detailFont)),
+                          font: detailFont, color: Theme.textTertiary, alignment: .center)
+            }
             return
         }
+
+        if pageCount > 1 { drawPageDots(m: m, accent: accent) }
 
         let size = posterSize
         let titleFont = Theme.font(m(15), .semibold)
         let detailFont = Theme.font(m(13), .regular)
         let now = Date()
-        var x: CGFloat = 0
-        for item in items.dropFirst(page * perPage).prefix(perPage) {
+        let visible = items.dropFirst(page * perPage).prefix(perPage)
+        let rowWidth = CGFloat(visible.count) * size.width + CGFloat(max(0, visible.count - 1)) * spacing
+        var x = ((bounds.width - rowWidth) / 2).rounded()
+        for item in visible {
             let posterRect = CGRect(x: x, y: headerHeight, width: size.width, height: size.height)
             Draw.poster(image(for: item.poster), title: item.title, in: posterRect, radius: m(8), accent: accent)
 
@@ -105,11 +123,12 @@ final class RecentlyAddedView: NSView {
         }
     }
 
+    /// Centred under the posters.
     private func drawPageDots(m: Metrics, accent: NSColor) {
         let radius = m(3.5)
         let gap = m(12)
-        var x = bounds.width - radius - CGFloat(pageCount - 1) * gap
-        let y = m(2) + Draw.lineHeight(Theme.font(m(14), .semibold)) / 2 + m(1)
+        var x = bounds.width / 2 - CGFloat(pageCount - 1) * gap / 2
+        let y = bounds.height - dotsHeight / 2
         for index in 0..<pageCount {
             Draw.dot(at: CGPoint(x: x, y: y), radius: radius,
                      color: index == page ? accent : NSColor(white: 1, alpha: 0.18))
