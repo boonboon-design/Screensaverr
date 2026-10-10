@@ -24,10 +24,8 @@ jobs:
           swift --version
           sw_vers
 
-      - name: Unit tests (networking, parsing, formatting)
-        run: swift test
-
       - name: Build Screensaverr.saver (universal, ad-hoc signed)
+        id: build
         run: |
           xcodebuild \
             -project Screensaverr.xcodeproj \
@@ -37,9 +35,14 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY=- \
             SYMROOT="$PWD/build" \
-            build
+            -quiet build
+
+      - name: Unit tests (networking, parsing, formatting)
+        if: ${{ !cancelled() }}
+        run: swift test
 
       - name: Inspect bundle
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           SAVER=build/Release/Screensaverr.saver
           plutil -p "$SAVER/Contents/Info.plist"
@@ -48,6 +51,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$SAVER"
 
       - name: Render screenshots against mock servers
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           python3 ci/mock_server.py 18989 > mock.log 2>&1 &
           sleep 1
@@ -60,12 +64,14 @@ jobs:
         run: cat mock.log || true
 
       - name: Package
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           mkdir -p dist
           ditto -c -k --sequesterRsrc --keepParent build/Release/Screensaverr.saver dist/Screensaverr.saver.zip
           shasum -a 256 dist/Screensaverr.saver.zip
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           name: Screensaverr.saver
           path: dist/Screensaverr.saver.zip

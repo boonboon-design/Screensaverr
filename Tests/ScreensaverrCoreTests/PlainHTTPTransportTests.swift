@@ -9,7 +9,7 @@ private final class CannedServer: @unchecked Sendable {
     private let lock = NSLock()
     private var _requests: [String] = []
     private var held: [NWConnection] = []
-    let port: UInt16
+    private(set) var port: UInt16 = 0
 
     var requests: [String] {
         lock.lock(); defer { lock.unlock() }
