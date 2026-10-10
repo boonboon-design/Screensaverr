@@ -126,7 +126,7 @@ final class DownloadsView: NSView {
                       font: peakFont, color: Theme.textTertiary, alignment: .right)
         }
 
-        // Footer: queue summary (or the last finished job)
+        // Footer: queue summary (empty when nothing is queued)
         let footerFont = Theme.font(m(14), .medium)
         let footerHeight = Draw.lineHeight(footerFont)
         let footerY = inner.maxY - footerHeight
@@ -135,8 +135,6 @@ final class DownloadsView: NSView {
             footer.append(data.itemCount == 1 ? "1 in queue" : "\(data.itemCount) in queue")
             if data.remainingBytes > 0 { footer.append("\(Formatting.bytes(data.remainingBytes)) left") }
             if let timeLeft = data.timeLeft, data.state == .downloading { footer.append(Formatting.duration(timeLeft)) }
-        } else if let today = data.downloadedToday {
-            footer.append("\(today) today")
         }
         Draw.text(footer.joined(separator: " · "), in: CGRect(x: inner.minX, y: footerY, width: inner.width, height: footerHeight),
                   font: footerFont, color: Theme.textSecondary)
@@ -230,7 +228,7 @@ final class DownloadsView: NSView {
         if let data {
             if data.remainingBytes > 0 { parts.append("\(Formatting.bytes(data.remainingBytes)) left") }
             if let timeLeft = data.timeLeft, data.state == .downloading { parts.append(Formatting.duration(timeLeft)) }
-            if let today = data.downloadedToday { parts.append("\(today) today") }
+            if let today = data.downloadedToday, today != "0 B" { parts.append("\(today) today") }
         }
         Draw.text(parts.joined(separator: "  ·  "), in: CGRect(x: rect.minX, y: summaryY, width: rect.width, height: summaryHeight),
                   font: summaryFont, color: Theme.textSecondary)
