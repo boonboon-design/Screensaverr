@@ -5,7 +5,7 @@ A native macOS screen saver for your media server. While your Mac is idle it sho
 - **Upcoming TV** from **Sonarr**: what airs today, tomorrow and this week, with posters. Season drops are grouped ("S01E01–E08"), and premieres, finales and already-downloaded episodes are tagged.
 - **Upcoming movies** from **Radarr**: each movie's next release (in cinemas, digital or physical).
 - **Requests** from **Seerr** (Overseerr and Jellyseerr work too): who asked for what, and whether it's pending, processing or available.
-- **Downloads** from **SABnzbd**: the current speed with a live graph, time and size remaining, the queue with progress bars, and recently finished jobs.
+- **Downloads** from **SABnzbd**, in a slim bar along the bottom: the current speed with a live graph, the active download's progress, and the queue size and time remaining. If SABnzbd is the only service set up, it becomes a full panel instead.
 
 It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
 

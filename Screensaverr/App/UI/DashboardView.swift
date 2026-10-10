@@ -114,11 +114,14 @@ final class DashboardView: NSView {
 
         downloads.isHidden = !showDownloads
         if showDownloads {
-            let height = columns.isEmpty ? min(bottom - top, m(420)) : m(280)
-            if columns.isEmpty { top += max(0, (bottom - top - height) / 2) }
+            // A slim bar under the columns; a full panel only when it's the only thing on screen.
+            let compact = !columns.isEmpty
+            let height = compact ? m(104) : min(bottom - top, m(420))
+            if !compact { top += max(0, (bottom - top - height) / 2) }
+            downloads.compact = compact
             downloads.frame = CGRect(x: margin, y: bottom - height, width: width, height: height)
             downloads.metrics = m
-            bottom = downloads.frame.minY - m(36)
+            bottom = downloads.frame.minY - m(30)
         }
 
         for column in [tvColumn, movieColumn, requestColumn] {
