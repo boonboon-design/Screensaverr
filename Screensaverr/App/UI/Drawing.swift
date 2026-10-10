@@ -90,7 +90,13 @@ enum Draw {
             NSGraphicsContext.saveGraphicsState()
             NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
             NSGradient(starting: Theme.placeholderTop, ending: Theme.placeholderBottom)?.draw(in: rect, angle: 90)
-            let initials = title.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
+            // Skip words like "(2022)" or "&" so "Saltwater (2022)" reads "S", not "S(".
+            let initials = title.split(separator: " ")
+                .filter { $0.first?.isLetter == true || $0.first?.isNumber == true }
+                .prefix(2)
+                .compactMap { $0.first.map(String.init) }
+                .joined()
+                .uppercased()
             let font = Theme.roundedFont(rect.width * 0.32, .semibold)
             let height = lineHeight(font)
             text(initials, in: CGRect(x: rect.minX, y: rect.midY - height / 2, width: rect.width, height: height),

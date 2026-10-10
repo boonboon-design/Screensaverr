@@ -9,6 +9,10 @@ A native macOS screen saver for your media server. While your Mac is idle it sho
 
 It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
 
+![Screensaverr rendered by CI against mock servers](docs/screenshot.png)
+
+<sub>Rendered by CI against mock servers, so the artwork is placeholder art.</sub>
+
 ## Install
 
 ### Option A: download a build
@@ -86,6 +90,6 @@ ci/          Mock Sonarr/Radarr/Seerr/SABnzbd server and a harness that renders 
 ```
 
 - `swift test` runs the core tests.
-- **CI (macOS):** every push runs the tests and builds a universal (Apple Silicon + Intel) `.saver`. CI then loads the bundle the way macOS does, points it at the mock servers, and saves screenshots of the screen saver and the Options sheet as a build artifact.
+- **CI (macOS):** every push runs the tests and builds a universal (Apple Silicon + Intel) `.saver`. CI then loads the bundle the way macOS does, points it at the mock servers, and saves screenshots of the screen saver and the Options sheet. They're uploaded as a build artifact, and the latest set is force-pushed to the `ci-screenshots` branch.
 - **Plain HTTP:** `http://` requests go through a small HTTP/1.1 client built on Network.framework. Third-party screen savers run inside Apple's `legacyScreenSaver` host, so App Transport Security follows that host's rules, not ours. URLSession could refuse plain-HTTP connections to home servers there.
 - **macOS 14+ cleanup:** `legacyScreenSaver` never calls `stopAnimation()` and keeps stale instances alive. Like other third-party screen savers, Screensaverr listens for `com.apple.screensaver.willstop` and exits its host process when the screen saver is dismissed.
