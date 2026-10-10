@@ -109,16 +109,16 @@ final class DashboardView: NSView {
 
         let columns = visibleColumns
         let showDownloads = store.downloads.isConfigured
-        var top = header.frame.maxY + m(26)
-        var bottom = bounds.height - m(60)
+        var top = header.frame.maxY + m(20)
+        var bottom = bounds.height - m(56)
 
         downloads.isHidden = !showDownloads
         if showDownloads {
-            let height = columns.isEmpty ? min(bottom - top, m(420)) : m(300)
+            let height = columns.isEmpty ? min(bottom - top, m(420)) : m(280)
             if columns.isEmpty { top += max(0, (bottom - top - height) / 2) }
             downloads.frame = CGRect(x: margin, y: bottom - height, width: width, height: height)
             downloads.metrics = m
-            bottom = downloads.frame.minY - m(44)
+            bottom = downloads.frame.minY - m(36)
         }
 
         for column in [tvColumn, movieColumn, requestColumn] {

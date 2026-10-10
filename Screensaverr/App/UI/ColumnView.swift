@@ -63,12 +63,13 @@ final class ColumnView: NSView {
     // MARK: Geometry (reference units, scaled by `metrics`)
 
     private var headerHeight: CGFloat { metrics(58) }
-    private var rowHeight: CGFloat { metrics(134) }
+    private var rowHeight: CGFloat { metrics(128) }
     private var rowSpacing: CGFloat { metrics(14) }
-    private var posterSize: CGSize { CGSize(width: metrics(82), height: metrics(123)) }
+    private var posterSize: CGSize { CGSize(width: metrics(80), height: metrics(120)) }
 
     var rowsPerPage: Int {
-        let available = bounds.height - headerHeight - metrics(20)
+        // Leave room for the page dots at the bottom.
+        let available = bounds.height - headerHeight - metrics(14)
         return max(1, Int((available + rowSpacing) / (rowHeight + rowSpacing)))
     }
 

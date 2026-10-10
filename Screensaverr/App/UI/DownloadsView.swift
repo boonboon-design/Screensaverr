@@ -94,6 +94,15 @@ final class DownloadsView: NSView {
                                          width: rect.width - numberWidth, height: Draw.lineHeight(unitFont)),
                   font: unitFont, color: Theme.textSecondary)
 
+        let peak = speedHistory.map(\.bytesPerSecond).max() ?? 0
+        if peak > 0 {
+            let peakFont = Theme.font(m(16), .medium)
+            Draw.text("peak \(Formatting.speed(peak))",
+                      in: CGRect(x: rect.minX, y: speedY + speedFont.ascender - peakFont.ascender,
+                                 width: rect.width, height: Draw.lineHeight(peakFont)),
+                      font: peakFont, color: Theme.textTertiary, alignment: .right)
+        }
+
         // Summary line at the bottom.
         let summaryFont = Theme.font(m(19), .medium)
         let summaryHeight = Draw.lineHeight(summaryFont)
@@ -160,9 +169,7 @@ final class DownloadsView: NSView {
             Draw.dot(at: last, radius: m(5), color: accent)
         }
 
-        let peakFont = Theme.font(m(14), .medium)
-        Draw.text("peak \(Formatting.speed(peak))", in: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: Draw.lineHeight(peakFont)),
-                  font: peakFont, color: Theme.textTertiary, alignment: .right)
+
     }
 
     // MARK: Right half: queue
@@ -171,8 +178,8 @@ final class DownloadsView: NSView {
         let nameFont = Theme.font(m(22), .semibold)
         let metaFont = Theme.font(m(16), .medium, monospacedDigits: true)
         let percentFont = Theme.font(m(20), .semibold, monospacedDigits: true)
-        let rowHeight = m(70)
-        let moreHeight = m(26)
+        let rowHeight = m(66)
+        let moreHeight = m(22)
 
         var capacity = max(1, Int(rect.height / rowHeight))
         if data.itemCount > capacity, capacity > 1, CGFloat(capacity) * rowHeight + moreHeight > rect.height {
@@ -190,7 +197,7 @@ final class DownloadsView: NSView {
             Draw.text(cleanName(item.name), in: CGRect(x: rect.minX, y: y, width: rect.width - percentWidth - m(16), height: nameHeight),
                       font: nameFont, color: Theme.textPrimary)
 
-            let barY = y + nameHeight + m(6)
+            let barY = y + nameHeight + m(5)
             Draw.progressBar(item.progress, in: CGRect(x: rect.minX, y: barY, width: rect.width, height: m(7)),
                              color: active ? accent : Theme.textTertiary)
 
@@ -204,7 +211,7 @@ final class DownloadsView: NSView {
                 meta.append(item.status)
             }
             if let category = item.category { meta.append(category) }
-            Draw.text(meta.joined(separator: "  ·  "), in: CGRect(x: rect.minX, y: barY + m(13), width: rect.width, height: Draw.lineHeight(metaFont)),
+            Draw.text(meta.joined(separator: "  ·  "), in: CGRect(x: rect.minX, y: barY + m(11), width: rect.width, height: Draw.lineHeight(metaFont)),
                       font: metaFont, color: Theme.textTertiary)
             y += rowHeight
         }
