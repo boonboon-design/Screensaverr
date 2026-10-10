@@ -1,0 +1,5 @@
+{"history": {"day_size": "34.2 G", "week_size": "120.0 G", "month_size": "1.1 T", "total_size": "9.9 T", "noofslots": 2,
+  "slots": [
+    {"nzo_id": "h1", "name": "Some.Show.S01E01.1080p", "status": "Completed", "completed": 1791626400, "bytes": 1234567890, "category": "tv"},
+    {"nzo_id": "h2", "name": "Broken.Release", "status": "Failed", "completed": 1791620000, "bytes": 0, "fail_message": "Out of retention"}
+  ]}}

@@ -1,0 +1,20 @@
+{
+  "pageInfo": {"pages": 1, "pageSize": 10, "results": 6, "page": 1},
+  "results": [
+    {"id": 11, "status": 1, "type": "movie", "createdAt": "2026-10-10T10:00:00.000Z", "is4k": false,
+     "media": {"id": 1, "tmdbId": 100, "mediaType": "movie", "status": 2, "status4k": 1},
+     "requestedBy": {"id": 2, "displayName": "Alice", "email": "alice@example.com"}},
+    {"id": 12, "status": 2, "type": "tv", "createdAt": "2026-10-09T08:30:00.000Z", "is4k": false,
+     "media": {"id": 2, "tmdbId": 200, "tvdbId": 2000, "mediaType": "tv", "status": 3, "status4k": 1},
+     "seasons": [{"id": 1, "seasonNumber": 2, "status": 2}, {"id": 2, "seasonNumber": 1, "status": 2}],
+     "requestedBy": {"id": 3, "displayName": "", "username": "bob"}},
+    {"id": 13, "status": 2, "type": "movie", "createdAt": "2026-10-01T08:30:00.000Z",
+     "media": {"tmdbId": 300, "mediaType": "movie", "status": 5},
+     "requestedBy": {"plexUsername": "carol"}},
+    {"id": 14, "status": 3, "type": "movie", "createdAt": "2026-10-02T08:30:00.000Z",
+     "media": {"tmdbId": 400, "mediaType": "movie", "status": 1}, "requestedBy": {"email": "dan@example.com"}},
+    {"id": 15, "status": 2, "type": "movie", "is4k": true, "createdAt": "2026-10-03T08:30:00.000Z",
+     "media": {"tmdbId": 500, "mediaType": "movie", "status": 5, "status4k": 3}, "requestedBy": null},
+    {"id": "not-a-number", "status": 2}
+  ]
+}

@@ -1,0 +1,91 @@
+# Screensaverr
+
+A native macOS screen saver for your media server. While your Mac is idle it shows:
+
+- **Upcoming TV** from **Sonarr**: what airs today, tomorrow and this week, with posters. Season drops are grouped ("S01E01–E08"), and premieres, finales and already-downloaded episodes are tagged.
+- **Upcoming movies** from **Radarr**: each movie's next release (in cinemas, digital or physical).
+- **Requests** from **Seerr** (Overseerr and Jellyseerr work too): who asked for what, and whether it's pending, processing or available.
+- **Downloads** from **SABnzbd**: the current speed with a live graph, time and size remaining, the queue with progress bars, and recently finished jobs.
+
+It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
+
+## Install
+
+### Option A: download a build
+
+1. Open the [**Actions**](../../actions/workflows/build.yml) tab, pick the latest green run, and download the **Screensaverr.saver** artifact. Tagged versions are also published under **Releases**.
+2. Unzip it. The build is ad-hoc signed, not notarized, so remove the download quarantine first:
+   ```bash
+   xattr -dr com.apple.quarantine ~/Downloads/Screensaverr.saver
+   ```
+3. Double-click **Screensaverr.saver** and choose to install it for this user.
+
+### Option B: build it yourself
+
+Requires Xcode 15 or later.
+
+```bash
+git clone https://github.com/boonboon-design/Screensaverr.git
+cd Screensaverr
+./scripts/install.sh
+```
+
+You can also open `Screensaverr.xcodeproj` and build the **Screensaverr** target. The product is `Screensaverr.saver`.
+
+## Set up
+
+1. Open **System Settings › Screen Saver** (on older macOS, **Wallpaper › Screen Saver…**) and select **Screensaverr**.
+2. Click **Options…**.
+3. For each service, enter the **URL** and **API key**, then click **Test Connection**.
+4. Click **Save**.
+
+| Service | Example URL | API key location |
+| --- | --- | --- |
+| Sonarr | `http://192.168.1.10:8989` | Settings › General › Security |
+| Radarr | `http://192.168.1.10:7878` | Settings › General › Security |
+| Seerr | `http://192.168.1.10:5055` | Settings › General |
+| SABnzbd | `http://192.168.1.10:8080` | Config › General › Security |
+
+- **URL base:** if a service runs under a path (`http://nas/sonarr`), include it in the URL. You can paste a URL that ends in `/api/v3` or `/api`; the suffix is stripped.
+- **HTTP vs HTTPS:** both work. If you use HTTPS with a self-signed certificate, turn on **Allow self-signed HTTPS certificates**.
+- **Pasting:** ⌘V works in the Options sheet, so you can paste API keys.
+- **Hiding a service:** switch off **Show …** for any service you don't want on screen. The layout adapts to the services that are set up.
+- **Display options:** you can also change how far ahead to look for TV and movies, how many requests to list, and whether to show the artwork backdrop.
+
+## How often it refreshes
+
+| Service | Every | After an error, retries in |
+| --- | --- | --- |
+| SABnzbd | 3 s | 10 s |
+| Seerr | 2 min | 30 s |
+| Sonarr | 5 min | 30 s |
+| Radarr | 10 min | 30 s |
+
+The last data and artwork are cached on disk, so the screen fills in immediately when the screen saver starts. When a server can't be reached, its last data stays on screen with an "Offline · updated …" note, and a red status light appears in the top-right corner.
+
+## Troubleshooting
+
+- **A new version doesn't show up:** macOS keeps the old one loaded. Run `killall legacyScreenSaver`, then quit and reopen System Settings.
+- **"Couldn't connect" / "Connection refused":** check the address and port from the Mac running the screen saver (e.g. open the URL in Safari). On macOS 15 and later, also check **System Settings › Privacy & Security › Local Network**.
+- **"Got a web page instead of … API data":** the URL is pointing at a login page or reverse-proxy page. Check the URL base.
+- **"The API key was rejected":** copy the key again from the app's settings page.
+
+## Privacy
+
+Your URLs and API keys are stored only on this Mac, in the screen saver's preferences. They are sent only to the servers you entered. Artwork comes from those servers or from the public TMDB/TVDB image CDNs they reference.
+
+## Development
+
+```
+Screensaverr/
+  Core/      UI-free code: HTTP client, API clients, parsing, polling store (unit tested)
+  App/       ScreenSaverView subclass, AppKit/Core Animation dashboard, SwiftUI Options sheet
+  Resources/ System Settings thumbnail
+Tests/       XCTest suite for Core (run with `swift test`)
+ci/          Mock Sonarr/Radarr/Seerr/SABnzbd server and a harness that renders screenshots
+```
+
+- `swift test` runs the core tests.
+- **CI (macOS):** every push runs the tests and builds a universal (Apple Silicon + Intel) `.saver`. CI then loads the bundle the way macOS does, points it at the mock servers, and saves screenshots of the screen saver and the Options sheet as a build artifact.
+- **Plain HTTP:** `http://` requests go through a small HTTP/1.1 client built on Network.framework. Third-party screen savers run inside Apple's `legacyScreenSaver` host, so App Transport Security follows that host's rules, not ours. URLSession could refuse plain-HTTP connections to home servers there.
+- **macOS 14+ cleanup:** `legacyScreenSaver` never calls `stopAnimation()` and keeps stale instances alive. Like other third-party screen savers, Screensaverr listens for `com.apple.screensaver.willstop` and exits its host process when the screen saver is dismissed.

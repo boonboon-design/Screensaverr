@@ -1,0 +1,25 @@
+[
+  {
+    "id": 10, "tmdbId": 1010, "title": "Dune: Part Three", "year": 2026, "studio": "Legendary Pictures",
+    "runtime": 166, "genres": ["Science Fiction", "Adventure", "Drama"], "certification": "PG-13",
+    "inCinemas": "2026-12-18T00:00:00Z", "digitalRelease": "2027-02-01T00:00:00Z",
+    "hasFile": false, "isAvailable": false, "monitored": true,
+    "images": [
+      {"coverType": "poster", "url": "/MediaCover/10/poster.jpg?lastWrite=1", "remoteUrl": "https://image.tmdb.org/t/p/original/dune3.jpg"},
+      {"coverType": "fanart", "url": "/MediaCover/10/fanart.jpg?lastWrite=1", "remoteUrl": "https://image.tmdb.org/t/p/original/dune3-fanart.jpg"}
+    ]
+  },
+  {
+    "id": 11, "title": "Quiet Harbor", "year": 2026, "runtime": 0, "genres": [],
+    "inCinemas": "2026-09-01T00:00:00Z", "digitalRelease": "2026-10-14T00:00:00Z",
+    "hasFile": false, "monitored": true, "images": []
+  },
+  {
+    "id": 12, "title": "Old Movie", "year": 2020,
+    "inCinemas": "2020-01-01T00:00:00Z", "physicalRelease": "2020-05-01T00:00:00Z", "images": []
+  },
+  {
+    "id": 13, "title": "Out Today", "year": 2026, "studio": "",
+    "physicalRelease": "2026-10-10T00:00:00Z", "hasFile": true, "images": []
+  }
+]

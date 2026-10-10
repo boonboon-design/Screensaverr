@@ -1,0 +1,9 @@
+{"queue": {"version": "4.5.1", "paused": false, "status": "Downloading", "speedlimit": "100", "speedlimit_abs": "",
+  "kbpersec": "43315.62", "speed": "42.3 M", "mbleft": "2048.00", "mb": "5120.00", "sizeleft": "2.0 GB", "size": "5.0 GB",
+  "noofslots_total": 5, "noofslots": 2, "start": 0, "limit": 2, "finish": 2, "timeleft": "0:00:48",
+  "slots": [
+    {"index": 0, "nzo_id": "SABnzbd_nzo_1", "filename": "Night.Shift.S01E03.1080p.WEB.h264-GRP", "status": "Downloading",
+     "cat": "tv", "percentage": "64", "mb": "2400.00", "mbleft": "864.00", "timeleft": "0:00:20", "priority": "Normal"},
+    {"index": 1, "nzo_id": "SABnzbd_nzo_2", "filename": "Quiet Harbor 2026 2160p", "status": "Queued",
+     "cat": "*", "percentage": "0", "mb": "2720.00", "mbleft": "2720.00", "timeleft": "0:00:00", "priority": "Normal"}
+  ]}}

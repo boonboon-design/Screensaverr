@@ -1,0 +1,44 @@
+[
+  {
+    "seriesId": 1, "tvdbId": 101, "episodeFileId": 0, "seasonNumber": 2, "episodeNumber": 5,
+    "title": "Into the Storm", "airDate": "2026-10-10", "airDateUtc": "2026-10-10T21:00:00Z",
+    "runtime": 55, "hasFile": false, "monitored": true, "id": 501,
+    "series": {
+      "id": 1, "title": "The Last Frontier", "network": "Apple TV+", "year": 2025,
+      "images": [
+        {"coverType": "banner", "url": "/sonarr/MediaCover/1/banner.jpg?lastWrite=1", "remoteUrl": "https://artworks.thetvdb.com/banners/graphical/1.jpg"},
+        {"coverType": "poster", "url": "/sonarr/MediaCover/1/poster.jpg?lastWrite=638", "remoteUrl": "https://artworks.thetvdb.com/banners/posters/1.jpg"},
+        {"coverType": "fanart", "url": "/sonarr/MediaCover/1/fanart.jpg?lastWrite=638", "remoteUrl": "https://artworks.thetvdb.com/banners/fanart/original/1.jpg"}
+      ]
+    }
+  },
+  {
+    "seriesId": 3, "seasonNumber": 5, "episodeNumber": 10, "title": "Yesterday's News",
+    "airDate": "2026-10-09", "airDateUtc": "2026-10-09T20:00:00Z", "hasFile": true, "monitored": true, "id": 900,
+    "series": {"id": 3, "title": "Old Show", "images": []}
+  },
+  {
+    "seriesId": 2, "seasonNumber": 1, "episodeNumber": 2, "title": "Second Shift",
+    "airDate": "2026-10-11", "airDateUtc": "2026-10-11T07:00:00.0000000Z", "hasFile": true, "monitored": true, "id": 602,
+    "series": {"id": 2, "title": "Night Shift", "network": "Netflix", "images": [{"coverType": "poster", "remoteUrl": "https://image.tmdb.org/t/p/original/night.jpg"}]}
+  },
+  {
+    "seriesId": 2, "seasonNumber": 1, "episodeNumber": 1, "title": "Pilot",
+    "airDate": "2026-10-11", "airDateUtc": "2026-10-11T07:00:00Z", "hasFile": true, "monitored": true, "id": 601,
+    "series": {"id": 2, "title": "Night Shift", "network": "Netflix", "images": [{"coverType": "poster", "remoteUrl": "https://image.tmdb.org/t/p/original/night.jpg"}]}
+  },
+  {
+    "seriesId": 2, "seasonNumber": 1, "episodeNumber": 3, "title": "TBA",
+    "airDate": "2026-10-11", "airDateUtc": "2026-10-11T07:00:00Z", "hasFile": false, "monitored": true, "id": 603,
+    "series": {"id": 2, "title": "Night Shift", "network": "Netflix", "images": []}
+  },
+  {
+    "seriesId": 1, "seasonNumber": 2, "episodeNumber": 6, "title": "TBA",
+    "airDate": "2026-10-17", "airDateUtc": "2026-10-17T21:00:00Z", "hasFile": false, "monitored": true,
+    "finaleType": "season", "id": 502,
+    "series": {"id": 1, "title": "The Last Frontier", "network": "Apple TV+", "images": []}
+  },
+  {
+    "seriesId": "broken", "seasonNumber": "x", "airDateUtc": 12, "id": 999
+  }
+]
