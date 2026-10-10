@@ -17,7 +17,7 @@ It also shows a clock and slowly cycles through fan-art backdrops. Everything dr
 
 ### Option A: download a build
 
-1. Open the [**Actions**](../../actions/workflows/build.yml) tab, pick the latest green run, and download the **Screensaverr.saver** artifact. Tagged versions are also published under **Releases**.
+1. Download **Screensaverr.saver.zip** from the [latest release](../../releases/latest). Builds of every commit are also available as artifacts on the [**Actions**](../../actions/workflows/build.yml) tab.
 2. Unzip it. The build is ad-hoc signed, not notarized, so remove the download quarantine first:
    ```bash
    xattr -dr com.apple.quarantine ~/Downloads/Screensaverr.saver
