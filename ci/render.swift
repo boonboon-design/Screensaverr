@@ -20,10 +20,6 @@ let port = arguments[3]
 let seconds = arguments.count > 4 ? Double(arguments[4]) ?? 30 : 30
 try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-app.finishLaunching()
-
 // MARK: Settings, written exactly where the screen saver reads them.
 
 let base = "http://127.0.0.1:\(port)"
@@ -140,19 +136,17 @@ func printPreview(_ image: CGImage, _ name: String, width: Int) {
     print("END-PREVIEW \(name)")
 }
 
+/// Lets the run loop (timers, network callbacks, Core Animation) run for a while.
 @MainActor
-func pump(_ duration: TimeInterval) {
-    let until = Date().addingTimeInterval(duration)
-    while Date() < until {
-        RunLoop.main.run(mode: .default, before: min(until, Date().addingTimeInterval(0.1)))
-    }
+func pause(_ duration: TimeInterval) async {
+    try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
 }
 
 @MainActor
-func shoot(_ window: NSWindow, _ name: String, previewWidth: Int) {
+func shoot(_ window: NSWindow, _ name: String, previewWidth: Int) async {
     window.displayIfNeeded()
     CATransaction.flush()
-    pump(0.5)
+    await pause(0.5)
     var image = captureWindow(window)
     if let captured = image, isMostlyEmpty(captured) {
         print("window capture of \(name) looks empty; falling back to layer rendering")
@@ -167,50 +161,60 @@ func shoot(_ window: NSWindow, _ name: String, previewWidth: Int) {
     printPreview(image, name, width: previewWidth)
 }
 
-// MARK: Full-screen saver
+// MARK: Scenes
 
-let frame = NSRect(x: 0, y: 0, width: 1920, height: 1080)
-let window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
-window.isReleasedWhenClosed = false
-guard let saver = makeSaver(frame) else {
-    print("error: init(frame:isPreview:) returned nil")
-    exit(1)
-}
-window.contentView = saver
-window.setFrameOrigin(.zero)
-window.orderFrontRegardless()
-saver.startAnimation()
-print("running for \(Int(seconds))s…")
-pump(seconds)
-shoot(window, "screensaver", previewWidth: 1280)
+@MainActor
+func runScenes() async {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.finishLaunching()
 
-// MARK: System Settings-sized preview
+    // Full-screen saver
+    let frame = NSRect(x: 0, y: 0, width: 1920, height: 1080)
+    let window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    guard let saver = makeSaver(frame) else {
+        print("error: init(frame:isPreview:) returned nil")
+        exit(1)
+    }
+    window.contentView = saver
+    window.setFrameOrigin(.zero)
+    window.orderFrontRegardless()
+    saver.startAnimation()
+    print("running for \(Int(seconds))s…")
+    await pause(seconds)
+    await shoot(window, "screensaver", previewWidth: 1280)
 
-let thumbFrame = NSRect(x: 0, y: 0, width: 296, height: 184)
-let thumbWindow = NSWindow(contentRect: thumbFrame, styleMask: [.borderless], backing: .buffered, defer: false)
-thumbWindow.isReleasedWhenClosed = false
-if let thumb = makeSaver(thumbFrame) {
-    thumbWindow.contentView = thumb
-    thumbWindow.setFrameOrigin(NSPoint(x: 0, y: 1100))
-    thumbWindow.orderFrontRegardless()
-    thumb.startAnimation()
-    pump(3)
-    shoot(thumbWindow, "preview-thumbnail", previewWidth: 296)
-    thumb.stopAnimation()
-}
+    // System Settings-sized preview
+    let thumbFrame = NSRect(x: 0, y: 0, width: 296, height: 184)
+    let thumbWindow = NSWindow(contentRect: thumbFrame, styleMask: [.borderless], backing: .buffered, defer: false)
+    thumbWindow.isReleasedWhenClosed = false
+    if let thumb = makeSaver(thumbFrame) {
+        thumbWindow.contentView = thumb
+        thumbWindow.setFrameOrigin(NSPoint(x: 0, y: 1100))
+        thumbWindow.orderFrontRegardless()
+        thumb.startAnimation()
+        await pause(3)
+        await shoot(thumbWindow, "preview-thumbnail", previewWidth: 296)
+        thumb.stopAnimation()
+    }
 
-// MARK: Options sheet
-
-if saver.hasConfigureSheet, let sheet = saver.configureSheet {
+    // Options sheet
+    guard saver.hasConfigureSheet, let sheet = saver.configureSheet else {
+        print("error: no configure sheet")
+        exit(1)
+    }
     sheet.setFrameOrigin(NSPoint(x: 100, y: 100))
     sheet.orderFrontRegardless()
-    pump(2)
-    shoot(sheet, "options-sheet", previewWidth: 560)
-} else {
-    print("error: no configure sheet")
-    exit(1)
+    await pause(2)
+    await shoot(sheet, "options-sheet", previewWidth: 560)
+
+    saver.stopAnimation()
+    print("done")
+    exit(0)
 }
 
-saver.stopAnimation()
-print("done")
-exit(0)
+Task { @MainActor in
+    await runScenes()
+}
+RunLoop.main.run()
