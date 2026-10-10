@@ -58,8 +58,14 @@ jobs:
           log stream --level debug --style compact \
             --predicate 'subsystem == "com.boonboondesign.Screensaverr"' > oslog.txt 2>&1 &
           python3 ci/mock_server.py 18989 > mock.log 2>&1 &
-          sleep 1
           swiftc -O ci/render.swift -o build/render
+          # On a fresh runner the first connections to a new Python process can stall for
+          # ~40s (application firewall evaluation), so wait until the mock answers.
+          for i in $(seq 1 120); do
+            curl -sf -m 2 http://127.0.0.1:18989/seerr/api/v1/status > /dev/null && break
+            sleep 1
+          done
+          echo "mock server reachable after ${i}s"
           build/render build/Release/Screensaverr.saver screenshots 18989 40
         timeout-minutes: 5
 

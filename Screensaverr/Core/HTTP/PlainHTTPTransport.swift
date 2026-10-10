@@ -90,6 +90,7 @@ private final class PlainHTTPExchange: @unchecked Sendable {
     private var head: HTTPResponseHead?
     private var continuation: CheckedContinuation<HTTPResponse, Error>?
     private var finished = false
+    private var connected = false
 
     private static let counterLock = NSLock()
     private static var counter = 0
@@ -124,7 +125,8 @@ private final class PlainHTTPExchange: @unchecked Sendable {
             }
             self.connection.start(queue: self.queue)
             self.queue.asyncAfter(deadline: .now() + self.timeout) { [weak self] in
-                self?.finish(.failure(HTTPError.timedOut))
+                guard let self else { return }
+                self.finish(.failure(self.connected ? HTTPError.timedOut : HTTPError.connectTimedOut))
             }
         }
     }
@@ -137,6 +139,7 @@ private final class PlainHTTPExchange: @unchecked Sendable {
         Log.network.debug("#\(self.id, privacy: .public) state \(String(describing: state), privacy: .public) after \(self.elapsed, privacy: .public)")
         switch state {
         case .ready:
+            connected = true
             connection.send(content: payload, completion: .contentProcessed { [self] error in
                 if let error { self.finish(.failure(Self.map(error))) }
             })
@@ -144,7 +147,11 @@ private final class PlainHTTPExchange: @unchecked Sendable {
         case .waiting(let error):
             // "Waiting" means the path is unusable right now (refused, unreachable, no DNS…).
             // A screen saver has no reason to wait around for it.
-            finish(.failure(Self.map(error)))
+            if case .posix(.ETIMEDOUT) = error {
+                finish(.failure(HTTPError.connectTimedOut))
+            } else {
+                finish(.failure(Self.map(error)))
+            }
         case .failed(let error):
             finish(.failure(Self.map(error)))
         default:

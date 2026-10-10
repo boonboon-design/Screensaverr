@@ -27,6 +27,8 @@ struct HTTPResponse {
 enum HTTPError: Error, LocalizedError, Equatable {
     case invalidURL
     case timedOut
+    /// The TCP connection itself never completed (wrong address/port, firewall, or no Local Network access).
+    case connectTimedOut
     case hostNotFound
     case connectionRefused
     case connectionFailed(String)
@@ -39,6 +41,9 @@ enum HTTPError: Error, LocalizedError, Equatable {
         switch self {
         case .invalidURL: return "The URL isn't valid."
         case .timedOut: return "The server didn't respond in time."
+        case .connectTimedOut:
+            return "Couldn't connect — nothing answered at that address. Check the IP and port, and that "
+                + "Local Network access is allowed (System Settings › Privacy & Security › Local Network)."
         case .hostNotFound: return "Couldn't find that host. Check the address."
         case .connectionRefused: return "Connection refused. Check the address and port."
         case .connectionFailed(let detail): return "Couldn't connect (\(detail))."
