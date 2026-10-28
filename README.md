@@ -11,7 +11,7 @@ A native macOS screen saver for your media server. While your Mac is idle it sho
 
 It also shows a clock and slowly cycles through fan-art backdrops. Everything drifts by a few pixels every minute to avoid burn-in.
 
-![Screensaverr rendered by CI against mock servers](docs/screenshot.png)
+![Screensaverr showing upcoming TV, movies, requests, downloads, recently added and now playing](docs/screenshot.webp)
 
 <sub>Rendered by CI against mock servers, so the artwork is placeholder art.</sub>
 
