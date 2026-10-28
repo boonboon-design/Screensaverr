@@ -44,9 +44,22 @@ jobs:
             SYMROOT="$PWD/build" \
             -quiet build
 
-      - name: Unit tests (networking, parsing, formatting)
+      # API keys live in the login Keychain; give the tests and the render harness an
+      # unlocked default keychain so nothing can wait on a password prompt.
+      - name: Unlocked keychain for API key storage
+        if: ${{ !cancelled() }}
+        run: |
+          security create-keychain -p ci ci.keychain
+          security set-keychain-settings ci.keychain
+          security unlock-keychain -p ci ci.keychain
+          security list-keychains -d user -s ci.keychain $(security list-keychains -d user | tr -d '"')
+          security default-keychain -d user -s ci.keychain
+          security list-keychains -d user
+
+      - name: Unit tests (networking, parsing, formatting, settings storage)
         if: ${{ !cancelled() }}
         run: swift test
+        timeout-minutes: 10
 
       - name: Inspect bundle
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

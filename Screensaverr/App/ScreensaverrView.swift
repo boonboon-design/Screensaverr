@@ -38,6 +38,8 @@ final class ScreensaverrView: ScreenSaverView {
         self.dashboard = dashboard
 
         if !detectedPreview {
+            // Must happen before settings (and so the API keys) are first loaded.
+            KeychainSecretStore.disallowUserInteraction()
             DistributedNotificationCenter.default().addObserver(
                 self,
                 selector: #selector(screenSaverWillStop(_:)),

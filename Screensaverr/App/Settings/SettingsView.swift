@@ -46,7 +46,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Display")
                 } footer: {
-                    Text("Settings, including API keys, are stored only on this Mac. Saved API keys are never shown again.")
+                    Text("Settings are stored only on this Mac. API keys are kept in your login Keychain and are never shown again.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -55,8 +55,15 @@ struct SettingsView: View {
 
             Divider()
 
-            HStack {
-                Spacer()
+            HStack(spacing: 12) {
+                if let problem = model.problem {
+                    Label(problem, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .font(.callout)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
                 Button("Cancel") { model.cancel() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") { model.save() }

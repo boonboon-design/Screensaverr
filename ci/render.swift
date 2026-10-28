@@ -6,6 +6,7 @@
 
 import AppKit
 import ScreenSaver
+import Security
 
 setvbuf(stdout, nil, _IONBF, 0)
 
@@ -240,6 +241,26 @@ func runScenes() async {
     await shoot(sheet, "options-sheet")
 
     saver.stopAnimation()
+
+    // The plain-text keys written above must have moved into the Keychain and out of the file.
+    defaults.synchronize()
+    let preferences = defaults.string(forKey: "settings.v1") ?? ""
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: moduleName,
+        kSecAttrAccount as String: "sonarr",
+        kSecReturnData as String: true,
+    ]
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    let keychainKey = (result as? Data).flatMap { String(data: $0, encoding: .utf8) }
+    print("preferences still contain API keys: \(preferences.contains("testkey"))")
+    print("Keychain lookup for the Sonarr key: status \(status), matches: \(keychainKey == "testkey")")
+    guard !preferences.contains("testkey"), keychainKey == "testkey" else {
+        print("error: API keys were not moved into the Keychain")
+        exit(1)
+    }
+
     print("done")
     exit(0)
 }

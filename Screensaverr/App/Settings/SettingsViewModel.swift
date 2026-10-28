@@ -11,6 +11,8 @@ final class SettingsViewModel: ObservableObject {
 
     @Published var settings: AppSettings
     @Published var testResults: [ServiceKind: TestResult] = [:]
+    /// A Keychain problem from loading or saving, shown above the buttons.
+    @Published var problem: String?
 
     /// API keys typed into the sheet but not saved yet. Saved keys are never shown again:
     /// the sheet only says a key is saved, and offers to replace or remove it.
@@ -20,9 +22,12 @@ final class SettingsViewModel: ObservableObject {
     var onClose: () -> Void = {}
 
     private var testTasks: [ServiceKind: Task<Void, Never>] = [:]
+    private let savedAllowInvalidCertificates: Bool
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, problem: String? = nil) {
+        savedAllowInvalidCertificates = settings.allowInvalidCertificates
         self.settings = settings
+        self.problem = problem
     }
 
     func binding(for kind: ServiceKind) -> Binding<ServiceConfig> {
@@ -107,10 +112,17 @@ final class SettingsViewModel: ObservableObject {
 
     func save() {
         cancelTests()
+        var updated = settings
         for kind in ServiceKind.allCases {
-            settings[kind] = effectiveConfig(kind)
+            updated[kind] = effectiveConfig(kind)
         }
-        SettingsStore.save(settings)
+        do {
+            try SettingsStore.save(updated)
+        } catch {
+            // Keys are never written anywhere but the Keychain, so stay open and say why.
+            problem = "Couldn't save API keys to the Keychain: \(error.localizedDescription)"
+            return
+        }
         DashboardStore.shared.reloadSettings()
         onClose()
     }
@@ -118,7 +130,7 @@ final class SettingsViewModel: ObservableObject {
     func cancel() {
         cancelTests()
         // Undo any certificate toggle made while testing.
-        HTTPClient.shared.allowInvalidCertificates = SettingsStore.load().allowInvalidCertificates
+        HTTPClient.shared.allowInvalidCertificates = savedAllowInvalidCertificates
         onClose()
     }
 

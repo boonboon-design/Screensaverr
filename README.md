@@ -76,10 +76,13 @@ The last data and artwork are cached on disk, so the screen fills in immediately
 - **"Couldn't connect" / "Connection refused":** check the address and port from the Mac running the screen saver (e.g. open the URL in Safari). On macOS 15 and later, also check **System Settings › Privacy & Security › Local Network**.
 - **"Got a web page instead of … API data":** the URL is pointing at a login page or reverse-proxy page. Check the URL base.
 - **"The API key was rejected":** copy the key again from the app's settings page.
+- **A Keychain message in Options, or services stop connecting after updating to 1.3.0:** open Options and click **Save**. If that fails too, open **Keychain Access**, delete the **Screensaverr API key** items, and enter the keys again.
 
 ## Privacy
 
-Your URLs and API keys are stored only on this Mac, in the screen saver's preferences. They are sent only to the servers you entered. Artwork comes from those servers or from the public TMDB/TVDB image CDNs they reference.
+Everything stays on this Mac. URLs and display settings are kept in the screen saver's preferences. API keys are kept in your login Keychain, never in a plain-text file: macOS encrypts them and unlocks them with your login password. They appear in Keychain Access as **Screensaverr API key (sonarr)** and so on. Keys saved by versions before 1.3.0 move into the Keychain, and are wiped from the preferences file, the first time 1.3.0 loads its settings.
+
+Keys are sent only to the servers you entered. Artwork comes from those servers or from the public TMDB/TVDB image CDNs they reference.
 
 ## Development
 

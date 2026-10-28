@@ -1,8 +1,9 @@
 import Foundation
 import ScreenSaver
 
-/// Persists `AppSettings` with ScreenSaverDefaults, which works inside the sandboxed
-/// `legacyScreenSaver` host (both the System Settings preview and the real screen saver).
+/// Persists `AppSettings`: API keys in the login Keychain, everything else with ScreenSaverDefaults,
+/// which works inside the sandboxed `legacyScreenSaver` host (both the System Settings preview and
+/// the real screen saver). See `SettingsRepository`.
 enum SettingsStore {
     private static let key = "settings.v1"
 
@@ -10,25 +11,34 @@ enum SettingsStore {
         Bundle(for: ScreensaverrView.self).bundleIdentifier ?? "com.boonboondesign.Screensaverr"
     }
 
-    private static var defaults: ScreenSaverDefaults? {
-        ScreenSaverDefaults(forModuleWithName: moduleName)
+    private static var repository: SettingsRepository? {
+        guard let defaults = ScreenSaverDefaults(forModuleWithName: moduleName) else { return nil }
+        return SettingsRepository(
+            readPreferences: {
+                defaults.synchronize()
+                return defaults.string(forKey: key)
+            },
+            writePreferences: { json in
+                defaults.set(json, forKey: key)
+                defaults.synchronize()
+            },
+            secrets: KeychainSecretStore(service: moduleName)
+        )
     }
 
     static func load() -> AppSettings {
-        guard let defaults else { return AppSettings() }
-        defaults.synchronize()
-        guard let json = defaults.string(forKey: key),
-              let settings = try? JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
-        else { return AppSettings() }
-        return settings
+        loadReportingProblems().settings
     }
 
-    static func save(_ settings: AppSettings) {
-        guard let defaults,
-              let data = try? JSONEncoder().encode(settings),
-              let json = String(data: data, encoding: .utf8)
-        else { return }
-        defaults.set(json, forKey: key)
-        defaults.synchronize()
+    static func loadReportingProblems() -> SettingsRepository.Loaded {
+        guard let repository else { return SettingsRepository.Loaded(settings: AppSettings()) }
+        let loaded = repository.load()
+        if let problem = loaded.problem { Log.general.error("\(problem, privacy: .public)") }
+        return loaded
+    }
+
+    /// Throws if the Keychain won't take the keys; they're never written anywhere else.
+    static func save(_ settings: AppSettings) throws {
+        try repository?.save(settings)
     }
 }

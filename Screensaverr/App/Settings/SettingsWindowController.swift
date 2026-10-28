@@ -8,7 +8,8 @@ final class SettingsWindowController: NSObject {
 
     /// A fresh window each time, so it always reflects the saved settings.
     func makeWindow() -> NSWindow {
-        let model = SettingsViewModel(settings: SettingsStore.load())
+        let loaded = SettingsStore.loadReportingProblems()
+        let model = SettingsViewModel(settings: loaded.settings, problem: loaded.problem)
         let hosting = NSHostingController(rootView: SettingsView(model: model))
         let window = EditableTextWindow(contentViewController: hosting)
         window.title = "Screensaverr"
