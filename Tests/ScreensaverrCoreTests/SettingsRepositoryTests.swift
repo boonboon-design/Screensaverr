@@ -62,7 +62,9 @@ final class SettingsRepositoryTests: XCTestCase {
         XCTAssertEqual(store.secrets, ["sonarr": "sonarr-secret", "tautulli": "tautulli-secret"])
         let rewritten = try XCTUnwrap(file)
         XCTAssertFalse(rewritten.contains("secret"), rewritten)
-        XCTAssertTrue(rewritten.contains("http://nas:8989"))
+        let kept = try JSONDecoder().decode(AppSettings.self, from: Data(rewritten.utf8))
+        XCTAssertEqual(kept.sonarr.url, "http://nas:8989", "everything but the keys stays in the file")
+        XCTAssertEqual(kept.requestCount, 9)
     }
 
     func testKeysStayPutWhenTheStoreCantTakeThem() throws {
