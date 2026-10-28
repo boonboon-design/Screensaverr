@@ -56,6 +56,7 @@ You can also open `Screensaverr.xcodeproj` and build the **Screensaverr** target
 - **URL base:** if a service runs under a path (`http://nas/sonarr`), include it in the URL. You can paste a URL that ends in `/api/v3`, `/api/v2` or `/api`; the suffix is stripped.
 - **HTTP vs HTTPS:** both work. If you use HTTPS with a self-signed certificate, turn on **Allow self-signed HTTPS certificates**.
 - **Pasting:** ⌘V works in the Options sheet, so you can paste API keys.
+- **API keys are write-only:** once saved, a key shows only as **Saved**, and it can't be revealed again. To change one, click **Replace…** and paste the new key; **Remove** clears it.
 - **Hiding a service:** switch off **Show …** for any service you don't want on screen. The layout adapts to the services that are set up.
 - **Display options:** you can also change how far ahead to look for TV and movies, how many requests to list, and whether to show the artwork backdrop.
 

@@ -12,6 +12,11 @@ final class SettingsViewModel: ObservableObject {
     @Published var settings: AppSettings
     @Published var testResults: [ServiceKind: TestResult] = [:]
 
+    /// API keys typed into the sheet but not saved yet. Saved keys are never shown again:
+    /// the sheet only says a key is saved, and offers to replace or remove it.
+    @Published private var keyDrafts: [ServiceKind: String] = [:]
+    @Published private var replacingKey: Set<ServiceKind> = []
+
     var onClose: () -> Void = {}
 
     private var testTasks: [ServiceKind: Task<Void, Never>] = [:]
@@ -30,13 +35,61 @@ final class SettingsViewModel: ObservableObject {
         )
     }
 
+    // MARK: API keys
+
+    func hasSavedKey(_ kind: ServiceKind) -> Bool { !settings[kind].trimmedAPIKey.isEmpty }
+
+    /// The key field shows when there's no saved key, or the user chose to replace it.
+    func showsKeyField(_ kind: ServiceKind) -> Bool { !hasSavedKey(kind) || replacingKey.contains(kind) }
+
+    /// Bound to the (always masked) key field; starts empty rather than showing the saved key.
+    func keyDraft(for kind: ServiceKind) -> Binding<String> {
+        Binding(
+            get: { self.keyDrafts[kind] ?? "" },
+            set: { newValue in
+                self.keyDrafts[kind] = newValue
+                self.testResults[kind] = nil
+            }
+        )
+    }
+
+    func replaceKey(_ kind: ServiceKind) {
+        replacingKey.insert(kind)
+        keyDrafts[kind] = nil
+        testResults[kind] = nil
+    }
+
+    func keepSavedKey(_ kind: ServiceKind) {
+        replacingKey.remove(kind)
+        keyDrafts[kind] = nil
+        testResults[kind] = nil
+    }
+
+    /// Takes effect on Save, like every other change in the sheet.
+    func removeKey(_ kind: ServiceKind) {
+        settings[kind].apiKey = ""
+        replacingKey.remove(kind)
+        keyDrafts[kind] = nil
+        testResults[kind] = nil
+    }
+
+    /// A service's settings with any newly typed key in place of the saved one.
+    private func effectiveConfig(_ kind: ServiceKind) -> ServiceConfig {
+        var config = settings[kind]
+        let draft = (keyDrafts[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !draft.isEmpty { config.apiKey = draft }
+        return config
+    }
+
+    // MARK: Testing and saving
+
     func canTest(_ kind: ServiceKind) -> Bool {
-        let config = settings[kind]
+        let config = effectiveConfig(kind)
         return config.baseURL != nil && !config.trimmedAPIKey.isEmpty && testResults[kind] != .running
     }
 
     func test(_ kind: ServiceKind) {
-        let config = settings[kind]
+        let config = effectiveConfig(kind)
         testTasks[kind]?.cancel()
         testResults[kind] = .running
         HTTPClient.shared.allowInvalidCertificates = settings.allowInvalidCertificates
@@ -54,6 +107,9 @@ final class SettingsViewModel: ObservableObject {
 
     func save() {
         cancelTests()
+        for kind in ServiceKind.allCases {
+            settings[kind] = effectiveConfig(kind)
+        }
         SettingsStore.save(settings)
         DashboardStore.shared.reloadSettings()
         onClose()

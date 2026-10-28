@@ -46,7 +46,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Display")
                 } footer: {
-                    Text("Settings, including API keys, are stored only on this Mac.")
+                    Text("Settings, including API keys, are stored only on this Mac. Saved API keys are never shown again.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -72,7 +72,6 @@ struct SettingsView: View {
 private struct ServiceSection: View {
     let kind: ServiceKind
     @ObservedObject var model: SettingsViewModel
-    @State private var revealKey = false
 
     var body: some View {
         let config = model.binding(for: kind)
@@ -83,24 +82,28 @@ private struct ServiceSection: View {
             .textFieldStyle(.roundedBorder)
             .disableAutocorrection(true)
 
-        HStack(spacing: 6) {
-            Group {
-                if revealKey {
-                    TextField("API Key", text: config.apiKey, prompt: Text("Paste the API key"))
-                } else {
-                    SecureField("API Key", text: config.apiKey, prompt: Text("Paste the API key"))
+        // API keys are write-only: once saved they're never shown again, only replaced or removed.
+        if model.showsKeyField(kind) {
+            HStack(spacing: 6) {
+                SecureField("API Key", text: model.keyDraft(for: kind),
+                            prompt: Text(model.hasSavedKey(kind) ? "Paste the new API key" : "Paste the API key"))
+                    .textFieldStyle(.roundedBorder)
+                    .disableAutocorrection(true)
+                if model.hasSavedKey(kind) {
+                    Button("Cancel") { model.keepSavedKey(kind) }
+                        .help("Keep the saved API key")
                 }
             }
-            .textFieldStyle(.roundedBorder)
-            .disableAutocorrection(true)
-
-            Button {
-                revealKey.toggle()
-            } label: {
-                Image(systemName: revealKey ? "eye.slash" : "eye")
+        } else {
+            LabeledContent("API Key") {
+                HStack(spacing: 8) {
+                    Label("Saved", systemImage: "lock.fill")
+                        .foregroundColor(.secondary)
+                        .help("For security, a saved API key can't be shown again.")
+                    Button("Replace…") { model.replaceKey(kind) }
+                    Button("Remove", role: .destructive) { model.removeKey(kind) }
+                }
             }
-            .buttonStyle(.borderless)
-            .help(revealKey ? "Hide API key" : "Show API key")
         }
 
         HStack(alignment: .firstTextBaseline, spacing: 10) {
